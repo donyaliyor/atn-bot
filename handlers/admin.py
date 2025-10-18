@@ -6,7 +6,7 @@ import logging
 import csv
 import io
 from datetime import datetime, date, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ContextTypes
 
 from config import Config
@@ -37,9 +37,6 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         [
             InlineKeyboardButton("👥 User List", callback_data="admin_users"),
             InlineKeyboardButton("📈 Statistics", callback_data="admin_stats")
-        ],
-        [
-            InlineKeyboardButton("🔍 Search User", callback_data="admin_search")
         ]
     ]
 
@@ -84,12 +81,6 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await send_user_list(query, lang)
     elif action == 'stats':
         await send_statistics(query, lang)
-    elif action == 'search':
-        await query.edit_message_text(
-            get_message(lang, 'admin_search_prompt'),
-            parse_mode='Markdown'
-        )
-        context.user_data['awaiting_admin_search'] = True
 
 
 async def send_today_report(query, lang: str) -> None:
@@ -171,6 +162,8 @@ async def send_week_report(query, lang: str) -> None:
 
 async def send_csv_export(query, lang: str, period: str) -> None:
     """Export attendance data to CSV"""
+    logger.info(f"CSV export requested by {query.from_user.id} for period: {period}")
+
     # Get data based on period
     if period == 'today':
         records = Attendance.get_daily_report(date.today())
@@ -183,9 +176,12 @@ async def send_csv_export(query, lang: str, period: str) -> None:
         records = []
         for i in range(7):
             day = week_start + timedelta(days=i)
-            records.extend(Attendance.get_daily_report(day))
+            daily_records = Attendance.get_daily_report(day)
+            records.extend(daily_records)
 
         filename = f"attendance_week_{week_start.strftime('%Y-%m-%d')}.csv"
+
+    logger.info(f"Found {len(records)} records for export")
 
     if not records:
         await query.answer(get_message(lang, 'admin_no_data_export'), show_alert=True)
@@ -197,8 +193,15 @@ async def send_csv_export(query, lang: str, period: str) -> None:
 
     # Write header
     writer.writerow([
-        'Date', 'User ID', 'Username', 'First Name', 'Last Name',
-        'Check-in Time', 'Check-out Time', 'Total Hours', 'Status'
+        'Date',
+        'User ID',
+        'Username',
+        'First Name',
+        'Last Name',
+        'Check-in Time',
+        'Check-out Time',
+        'Total Hours',
+        'Status'
     ])
 
     # Write data
@@ -211,30 +214,40 @@ async def send_csv_export(query, lang: str, period: str) -> None:
         writer.writerow([
             record['date'],
             record['user_id'],
-            record['username'] or '',
+            record.get('username', '') or '',
             record['first_name'],
-            record['last_name'] or '',
+            record.get('last_name', '') or '',
             check_in,
             check_out,
             f"{record['total_hours']:.2f}" if record['total_hours'] else '',
             record['status']
         ])
 
-    # Send CSV file
+    # Convert to bytes
     output.seek(0)
-    csv_bytes = io.BytesIO(output.getvalue().encode('utf-8'))
-    csv_bytes.name = filename
+    csv_content = output.getvalue()
+    csv_bytes = csv_content.encode('utf-8')
 
-    await query.message.reply_document(
-        document=csv_bytes,
-        filename=filename,
-        caption=get_message(lang, 'admin_csv_export_success', filename=filename)
-    )
+    logger.info(f"CSV file created: {len(csv_bytes)} bytes")
 
-    await query.answer(get_message(lang, 'admin_csv_sent'), show_alert=False)
+    try:
+        # Send CSV file as document
+        await query.message.reply_document(
+            document=csv_bytes,
+            filename=filename,
+            caption=get_message(lang, 'admin_csv_export_success', filename=filename)
+        )
 
-    # Log action
-    AdminLog.log_action(query.from_user.id, f"exported_csv_{period}", details=filename)
+        logger.info(f"CSV file sent successfully: {filename}")
+
+        await query.answer(get_message(lang, 'admin_csv_sent'), show_alert=False)
+
+        # Log action
+        AdminLog.log_action(query.from_user.id, f"exported_csv_{period}", details=filename)
+
+    except Exception as e:
+        logger.error(f"Error sending CSV file: {e}", exc_info=True)
+        await query.answer(f"Error sending CSV: {str(e)}", show_alert=True)
 
 
 async def send_user_list(query, lang: str) -> None:
@@ -246,7 +259,7 @@ async def send_user_list(query, lang: str) -> None:
 
     for teacher in teachers:
         name = f"{teacher['first_name']} {teacher['last_name'] or ''}".strip()
-        username = f"@{teacher['username']}" if teacher['username'] else "No username"
+        username = f"@{teacher['username']}" if teacher.get('username') else "No username"
         admin_badge = " 🔑" if teacher['is_admin'] else ""
         lang_badge = f" [{teacher['language'].upper()}]"
 
