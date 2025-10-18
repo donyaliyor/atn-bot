@@ -184,7 +184,13 @@ async def send_csv_export(query, lang: str, period: str) -> None:
     logger.info(f"Found {len(records)} records for export")
 
     if not records:
+        # Show alert AND edit message so user sees the error clearly
         await query.answer(get_message(lang, 'admin_no_data_export'), show_alert=True)
+        await query.edit_message_text(
+            get_message(lang, 'admin_no_data_export') + "\n\n" +
+            "💡 Try checking in first to create attendance records.",
+            parse_mode='Markdown'
+        )
         return
 
     # Create CSV in memory
@@ -231,23 +237,39 @@ async def send_csv_export(query, lang: str, period: str) -> None:
     logger.info(f"CSV file created: {len(csv_bytes)} bytes")
 
     try:
-        # Send CSV file as document
+        # Send CSV file as document with detailed info
         await query.message.reply_document(
             document=csv_bytes,
             filename=filename,
-            caption=get_message(lang, 'admin_csv_export_success', filename=filename)
+            caption=(
+                f"✅ **CSV Export Complete**\n\n"
+                f"📄 File: `{filename}`\n"
+                f"📊 Records: {len(records)}\n"
+                f"💾 Database: `{Config.DB_PATH}`\n\n"
+                f"The file has been sent above. You can:\n"
+                f"• Download it to your device\n"
+                f"• Open in spreadsheet software\n"
+                f"• Use for payroll/reports"
+            ),
+            parse_mode='Markdown'
         )
 
         logger.info(f"CSV file sent successfully: {filename}")
 
-        await query.answer(get_message(lang, 'admin_csv_sent'), show_alert=False)
+        await query.answer("📧 CSV file sent!", show_alert=False)
 
         # Log action
         AdminLog.log_action(query.from_user.id, f"exported_csv_{period}", details=filename)
 
     except Exception as e:
         logger.error(f"Error sending CSV file: {e}", exc_info=True)
-        await query.answer(f"Error sending CSV: {str(e)}", show_alert=True)
+        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        await query.message.reply_text(
+            f"⚠️ Failed to send CSV export.\n\n"
+            f"Error: `{str(e)}`\n\n"
+            f"Contact admin or check logs.",
+            parse_mode='Markdown'
+        )
 
 
 async def send_user_list(query, lang: str) -> None:
