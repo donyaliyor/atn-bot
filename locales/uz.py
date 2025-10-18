@@ -12,7 +12,7 @@ MESSAGES = {
         "📅 Faqat ish kunlarida ishlaydi.\n\n"
         "🆔 Sizning ID: `{user_id}`\n"
         "👤 Ro'yxatdan o'tgan: {full_name}\n\n"
-        "Buyruqlarni ko'rish uchun /help dan foydalaning."
+        "Buyruqlarni ko'rish uchun /help dan foydalaning yoki quyidagi menyu tugmalarini bosing."
     ),
 
     # Help
@@ -31,8 +31,8 @@ MESSAGES = {
     ),
     'help_admin': (
         "\n**Administrator buyruqlari:**\n"
-        "/stats - Ma'lumotlar bazasi statistikasi\n"
-        "/admin - Administrator paneli (tez orada)\n"
+        "/admin - Administrator paneli 🔐\n"
+        "/stats - Ma'lumotlar bazasi statistikasi 📈\n"
     ),
 
     # User Info
@@ -52,7 +52,7 @@ MESSAGES = {
         "Iltimos, manzilingizni yuboring.\n\n"
         "⚠️ Maktabdan {radius}m radius ichida bo'lishingiz kerak:\n"
         "📍 {school_location}\n\n"
-        "manzilni yuborish uchun quyidagi tugmani bosing."
+        "Manzilni yuborish uchun quyidagi tugmani bosing."
     ),
     'checkin_success': (
         "✅ **Kelish vaqti belgilandi!**\n\n"
@@ -128,6 +128,20 @@ MESSAGES = {
         "Tilni tanlang:"
     ),
     'language_changed': "✅ Til o'zbekchaga o'zgartirildi",
+    'language_changing': "⏳ Til o'zgartirilmoqda...",
+    'menu_updated': "✅ Menyu yangilandi! Tez kirish uchun quyidagi tugmalardan foydalaning.",
+
+    # Admin Panel
+    'admin_panel_welcome': "🔐 **Administrator paneli**\n\nHarakatni tanlang:",
+    'admin_no_data_today': "📭 Bugun uchun davomat yozuvlari yo'q.",
+    'admin_no_data_export': "📭 Bu davr uchun eksport qilish uchun ma'lumotlar yo'q.",
+    'admin_report_today': "📊 **Davomat hisoboti**\n📅 Sana: {date}",
+    'admin_report_week': "📊 **Haftalik hisobot**\n📅 {start_date} - {end_date}",
+    'admin_csv_export_success': "✅ Davomat ma'lumotlari eksport qilindi\n📄 {filename}",
+    'admin_csv_sent': "📧 CSV fayl muvaffaqiyatli yuborildi",
+    'admin_user_list_header': "👥 **Foydalanuvchilar ro'yxati** (jami {count})",
+    'admin_stats_header': "📊 **Tizim statistikasi**",
+    'admin_search_prompt': "🔍 Qidirish uchun foydalanuvchi ID yoki username yuboring...",
 
     # Errors
     'error_distance': (
@@ -160,7 +174,17 @@ MESSAGES = {
     'error_checkin_failed': "❌ Kelishni saqlashda xatolik yuz berdi. Administratorga murojaat qiling.",
     'error_checkout_failed': "❌ Ketishni saqlashda xatolik yuz berdi. Administratorga murojaat qiling.",
 
-    # Buttons
+    # Menu Buttons
+    'btn_checkin': "Kelish belgilash",
+    'btn_checkout': "Ketish belgilash",
+    'btn_status': "Mening holatim",
+    'btn_history': "Tarix",
+    'btn_language': "Til",
+    'btn_help': "Yordam",
+    'btn_admin': "Admin paneli",
+    'btn_stats': "Statistika",
+
+    # Other Buttons
     'btn_share_location': "📍 Manzilni yuborish",
     'btn_cancel': "❌ Bekor qilish",
     'btn_english': "🇬🇧 English",

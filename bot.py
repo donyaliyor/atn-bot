@@ -7,6 +7,8 @@ supports multiple languages (EN/RU/UZ), and provides admin features.
 """
 import logging
 import sys
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -20,6 +22,7 @@ from telegram.ext import (
 from config import Config
 from database.models import Teacher
 from locales import get_message
+from utils.keyboards import get_main_menu_keyboard, remove_keyboard
 
 # Configure logging with professional format
 logging.basicConfig(
@@ -34,10 +37,46 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ============================================================================
+# HEALTH CHECK SERVER (for zero-downtime deployment on Fly.io)
+# ============================================================================
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    """Simple HTTP handler for health checks."""
+
+    def do_GET(self):
+        if self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'OK')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        """Silence health check logs to avoid spam."""
+        pass
+
+
+def run_health_server():
+    """Run health check server in background thread."""
+    try:
+        server = HTTPServer(('0.0.0.0', 8080), HealthCheckHandler)
+        server.serve_forever()
+    except Exception as e:
+        logger.error(f"Health check server error: {e}")
+
+
+# ============================================================================
+# COMMAND HANDLERS
+# ============================================================================
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle the /start command.
-    Sends a welcome message to the user and registers them in database.
+    Sends a welcome message to the user, registers them in database,
+    and shows the main menu keyboard.
 
     Args:
         update: Telegram update object
@@ -63,7 +102,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # Get user's language (will be default for new users)
     lang = Teacher.get_language(user.id)
 
-    # Send welcome message
+    # Send welcome message with main menu keyboard
     message = get_message(
         lang,
         'welcome',
@@ -73,7 +112,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         full_name=f"{user.first_name} {user.last_name or ''}".strip()
     )
 
-    await update.message.reply_text(message, parse_mode='Markdown')
+    await update.message.reply_text(
+        message,
+        parse_mode='Markdown',
+        reply_markup=get_main_menu_keyboard(lang)
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -243,6 +286,55 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(message, parse_mode='Markdown')
 
 
+# ============================================================================
+# MENU BUTTON HANDLER
+# ============================================================================
+
+async def handle_button_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle text from menu buttons.
+    Routes button presses to appropriate command handlers.
+
+    Args:
+        update: Telegram update object
+        context: Callback context
+    """
+    text = update.message.text
+    user_id = update.effective_user.id
+    lang = Teacher.get_language(user_id)
+
+    # Import handlers
+    from handlers.attendance import checkin_command, checkout_command
+
+    # Map button text to commands (check if button text is in message)
+    if get_message(lang, 'btn_checkin') in text:
+        await checkin_command(update, context)
+    elif get_message(lang, 'btn_checkout') in text:
+        await checkout_command(update, context)
+    elif get_message(lang, 'btn_status') in text:
+        await status_command(update, context)
+    elif get_message(lang, 'btn_history') in text:
+        await history_command(update, context)
+    elif get_message(lang, 'btn_language') in text:
+        from handlers.start import language_command
+        await language_command(update, context)
+    elif get_message(lang, 'btn_help') in text:
+        await help_command(update, context)
+    elif get_message(lang, 'btn_admin') in text:
+        if Config.is_admin(user_id):
+            from handlers.admin import admin_panel
+            await admin_panel(update, context)
+        else:
+            message = get_message(lang, 'error_admin_only')
+            await update.message.reply_text(message, parse_mode='Markdown')
+    elif get_message(lang, 'btn_stats') in text:
+        await stats_command(update, context)
+
+
+# ============================================================================
+# ERROR HANDLER
+# ============================================================================
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle errors in the bot.
@@ -264,6 +356,10 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             logger.error(f"Failed to send error message to user: {e}")
 
 
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
 def main() -> None:
     """
     Start the bot.
@@ -272,6 +368,12 @@ def main() -> None:
     logger.info("=" * 60)
     logger.info("Starting Attendance Bot...")
     logger.info("=" * 60)
+
+    # Start health check server for zero-downtime deployment
+    logger.info("Starting health check server on port 8080...")
+    health_thread = threading.Thread(target=run_health_server, daemon=True)
+    health_thread.start()
+    logger.info("✅ Health check server started")
 
     # Validate configuration
     logger.info("Validating configuration...")
@@ -336,6 +438,17 @@ def main() -> None:
     application.add_handler(CommandHandler("cancel", cancel_command))
     application.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
+    # Register admin handlers
+    from handlers.admin import admin_panel, admin_callback
+    application.add_handler(CommandHandler("admin", admin_panel))
+    application.add_handler(CallbackQueryHandler(admin_callback, pattern="^admin_"))
+
+    # Register menu button handler (must be last text handler)
+    application.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        handle_button_text
+    ))
+
     # Register error handler
     application.add_error_handler(error_handler)
 
@@ -345,7 +458,13 @@ def main() -> None:
     # Start the bot
     logger.info("🚀 Bot is ready! Starting polling...")
     logger.info("=" * 60)
-    logger.info("Supported Languages: EN, RU, UZ")
+    logger.info("✨ Features:")
+    logger.info("  - Multi-language support (EN/RU/UZ)")
+    logger.info("  - Persistent menu buttons")
+    logger.info("  - Location-based check-in/out")
+    logger.info("  - Admin panel with reports & CSV export")
+    logger.info("  - Zero-downtime deployment")
+    logger.info("=" * 60)
     logger.info("Press Ctrl+C to stop the bot")
     logger.info("=" * 60)
 

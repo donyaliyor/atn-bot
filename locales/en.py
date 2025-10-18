@@ -12,7 +12,7 @@ MESSAGES = {
         "📅 Active on weekdays only.\n\n"
         "🆔 Your User ID: `{user_id}`\n"
         "👤 Registered as: {full_name}\n\n"
-        "Use /help to see available commands."
+        "Use /help to see available commands or tap the menu buttons below."
     ),
 
     # Help
@@ -31,8 +31,8 @@ MESSAGES = {
     ),
     'help_admin': (
         "\n**Admin Commands:**\n"
-        "/stats - View database statistics\n"
-        "/admin - Access admin panel (coming soon)\n"
+        "/admin - Access admin panel 🔐\n"
+        "/stats - View database statistics 📈\n"
     ),
 
     # User Info
@@ -128,6 +128,20 @@ MESSAGES = {
         "Choose your preferred language:"
     ),
     'language_changed': "✅ Language changed to English",
+    'language_changing': "⏳ Changing language...",
+    'menu_updated': "✅ Menu updated! Use the buttons below for quick access.",
+
+    # Admin Panel
+    'admin_panel_welcome': "🔐 **Admin Panel**\n\nSelect an action:",
+    'admin_no_data_today': "📭 No attendance records for today.",
+    'admin_no_data_export': "📭 No data to export for this period.",
+    'admin_report_today': "📊 **Attendance Report**\n📅 Date: {date}",
+    'admin_report_week': "📊 **Weekly Report**\n📅 {start_date} to {end_date}",
+    'admin_csv_export_success': "✅ Attendance data exported\n📄 {filename}",
+    'admin_csv_sent': "📧 CSV file sent successfully",
+    'admin_user_list_header': "👥 **User List** ({count} total)",
+    'admin_stats_header': "📊 **System Statistics**",
+    'admin_search_prompt': "🔍 Send user ID or username to search...",
 
     # Errors
     'error_distance': (
@@ -160,7 +174,17 @@ MESSAGES = {
     'error_checkin_failed': "❌ Error recording check-in. Please try again or contact admin.",
     'error_checkout_failed': "❌ Error recording check-out. Please try again or contact admin.",
 
-    # Buttons
+    # Menu Buttons
+    'btn_checkin': "Check In",
+    'btn_checkout': "Check Out",
+    'btn_status': "My Status",
+    'btn_history': "History",
+    'btn_language': "Language",
+    'btn_help': "Help",
+    'btn_admin': "Admin Panel",
+    'btn_stats': "Statistics",
+
+    # Other Buttons
     'btn_share_location': "📍 Share My Location",
     'btn_cancel': "❌ Cancel",
     'btn_english': "🇬🇧 English",
