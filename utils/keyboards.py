@@ -60,7 +60,7 @@ def remove_keyboard() -> ReplyKeyboardRemove:
 
 def get_main_menu_keyboard(lang: str = 'en') -> ReplyKeyboardMarkup:
     """
-    Create persistent main menu keyboard with common actions.
+    Create main menu keyboard with common actions.
     This keyboard stays visible at the bottom of the chat,
     providing quick access to all main bot functions.
 
@@ -68,7 +68,7 @@ def get_main_menu_keyboard(lang: str = 'en') -> ReplyKeyboardMarkup:
         lang: User's language code
 
     Returns:
-        ReplyKeyboardMarkup: Persistent main menu keyboard
+        ReplyKeyboardMarkup: Main menu keyboard
 
     Usage:
         await update.message.reply_text(
@@ -93,8 +93,7 @@ def get_main_menu_keyboard(lang: str = 'en') -> ReplyKeyboardMarkup:
 
     return ReplyKeyboardMarkup(
         keyboard,
-        resize_keyboard=True,
-        persistent=True  # Keyboard stays visible
+        resize_keyboard=True
     )
 
 
@@ -136,6 +135,5 @@ def get_admin_keyboard(lang: str = 'en') -> ReplyKeyboardMarkup:
 
     return ReplyKeyboardMarkup(
         keyboard,
-        resize_keyboard=True,
-        persistent=True
+        resize_keyboard=True
     )
