@@ -3,6 +3,7 @@ Admin panel handlers for attendance management.
 Provides reports, CSV export, and user management.
 
 PHASE 2: Added work schedule view command.
+COMMIT 3: Fixed Markdown parsing error in user list when usernames contain underscores.
 """
 import logging
 import csv
@@ -22,9 +23,7 @@ logger = logging.getLogger(__name__)
 
 @admin_only
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Show admin panel with inline buttons for various actions.
-    """
+    """Show admin panel with inline buttons for various actions."""
     user = update.effective_user
     lang = Teacher.get_language(user.id)
 
@@ -53,7 +52,6 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         parse_mode='Markdown'
     )
 
-    # Log admin action
     AdminLog.log_action(user.id, "accessed_admin_panel")
 
 
@@ -62,23 +60,14 @@ async def view_schedule_command(update: Update, context: ContextTypes.DEFAULT_TY
     """
     Show current work schedule configuration.
     Read-only view of schedule from Config environment variables.
-
-    PHASE 2: New admin command to view work schedule settings.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
     """
     user = update.effective_user
     logger.info(f"Admin {user.id} requested schedule view")
 
-    # Get user's language
     lang = Teacher.get_language(user.id)
 
-    # Get schedule information from Config-based WorkSchedule
     schedule_info = WorkSchedule.get_schedule_info()
 
-    # Format message with schedule details
     message = get_message(
         lang,
         'schedule_info',
@@ -94,7 +83,6 @@ async def view_schedule_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     await update.message.reply_text(message, parse_mode='Markdown')
 
-    # Log admin action
     AdminLog.log_action(user.id, "viewed_work_schedule")
 
 
@@ -104,7 +92,6 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user = query.from_user
     lang = Teacher.get_language(user.id)
 
-    # Verify admin status
     if not Config.is_admin(user.id):
         await query.answer(get_message(lang, 'error_admin_only'), show_alert=True)
         return
@@ -137,7 +124,6 @@ async def send_today_report(query, lang: str) -> None:
         await query.edit_message_text(message, parse_mode='Markdown')
         return
 
-    # Build report
     message = get_message(lang, 'admin_report_today', date=today.strftime('%Y-%m-%d'))
     message += "\n\n"
 
@@ -165,7 +151,6 @@ async def send_today_report(query, lang: str) -> None:
 
     await query.edit_message_text(message, parse_mode='Markdown')
 
-    # Log action
     AdminLog.log_action(query.from_user.id, "viewed_today_report")
 
 
@@ -182,14 +167,12 @@ async def send_week_report(query, lang: str) -> None:
     )
     message += "\n\n"
 
-    # Get all teachers
     teachers = Teacher.get_all_active()
 
     for teacher in teachers:
         name = f"{teacher['first_name']} {teacher['last_name'] or ''}".strip()
         user_id = teacher['user_id']
 
-        # Get week history
         history = Attendance.get_user_history(user_id, limit=7)
         week_records = [r for r in history if datetime.fromisoformat(r['date']).date() >= week_start]
 
@@ -200,7 +183,6 @@ async def send_week_report(query, lang: str) -> None:
 
     await query.edit_message_text(message, parse_mode='Markdown')
 
-    # Log action
     AdminLog.log_action(query.from_user.id, "viewed_week_report")
 
 
@@ -208,15 +190,13 @@ async def send_csv_export(query, lang: str, period: str) -> None:
     """Export attendance data to CSV"""
     logger.info(f"CSV export requested by {query.from_user.id} for period: {period}")
 
-    # Get data based on period
     if period == 'today':
         records = Attendance.get_daily_report(date.today())
         filename = f"attendance_{date.today().strftime('%Y-%m-%d')}.csv"
-    else:  # week
+    else:
         today = date.today()
         week_start = today - timedelta(days=today.weekday())
 
-        # Get all records for the week
         records = []
         for i in range(7):
             day = week_start + timedelta(days=i)
@@ -228,7 +208,6 @@ async def send_csv_export(query, lang: str, period: str) -> None:
     logger.info(f"Found {len(records)} records for export")
 
     if not records:
-        # Show alert AND edit message so user sees the error clearly
         await query.answer(get_message(lang, 'admin_no_data_export'), show_alert=True)
         await query.edit_message_text(
             get_message(lang, 'admin_no_data_export') + "\n\n" +
@@ -237,11 +216,9 @@ async def send_csv_export(query, lang: str, period: str) -> None:
         )
         return
 
-    # Create CSV in memory
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # Write header
     writer.writerow([
         'Date',
         'User ID',
@@ -254,7 +231,6 @@ async def send_csv_export(query, lang: str, period: str) -> None:
         'Status'
     ])
 
-    # Write data
     for record in records:
         check_in = datetime.fromisoformat(record['check_in_time']).strftime('%Y-%m-%d %H:%M:%S')
         check_out = ''
@@ -273,7 +249,6 @@ async def send_csv_export(query, lang: str, period: str) -> None:
             record['status']
         ])
 
-    # Convert to bytes
     output.seek(0)
     csv_content = output.getvalue()
     csv_bytes = csv_content.encode('utf-8')
@@ -281,7 +256,6 @@ async def send_csv_export(query, lang: str, period: str) -> None:
     logger.info(f"CSV file created: {len(csv_bytes)} bytes")
 
     try:
-        # Send CSV file as document with detailed info
         await query.message.reply_document(
             document=csv_bytes,
             filename=filename,
@@ -302,7 +276,6 @@ async def send_csv_export(query, lang: str, period: str) -> None:
 
         await query.answer("CSV file sent!", show_alert=False)
 
-        # Log action
         AdminLog.log_action(query.from_user.id, f"exported_csv_{period}", details=filename)
 
     except Exception as e:
@@ -316,8 +289,30 @@ async def send_csv_export(query, lang: str, period: str) -> None:
         )
 
 
+def escape_markdown(text: str) -> str:
+    """
+    Escape special Markdown characters to prevent parsing errors.
+
+    COMMIT 3: New utility function to fix username parsing issues.
+
+    Args:
+        text: Text that may contain special Markdown characters
+
+    Returns:
+        str: Text with escaped Markdown characters
+    """
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in special_chars:
+        text = text.replace(char, '\\' + char)
+    return text
+
+
 async def send_user_list(query, lang: str) -> None:
-    """Send list of all users"""
+    """
+    Send list of all users.
+
+    COMMIT 3: Fixed Markdown parsing error by escaping special characters in usernames.
+    """
     teachers = Teacher.get_all_active()
 
     message = get_message(lang, 'admin_user_list_header', count=len(teachers))
@@ -325,7 +320,14 @@ async def send_user_list(query, lang: str) -> None:
 
     for teacher in teachers:
         name = f"{teacher['first_name']} {teacher['last_name'] or ''}".strip()
-        username = f"@{teacher['username']}" if teacher.get('username') else "No username"
+
+        # COMMIT 3 FIX: Escape Markdown characters in username
+        if teacher.get('username'):
+            username = f"@{teacher['username']}"
+            username = escape_markdown(username)
+        else:
+            username = "No username"
+
         admin_badge = " 🔑" if teacher['is_admin'] else ""
         lang_badge = f" [{teacher['language'].upper()}]"
 
@@ -334,7 +336,6 @@ async def send_user_list(query, lang: str) -> None:
 
     await query.edit_message_text(message, parse_mode='Markdown')
 
-    # Log action
     AdminLog.log_action(query.from_user.id, "viewed_user_list")
 
 
@@ -345,7 +346,6 @@ async def send_statistics(query, lang: str) -> None:
     stats = get_db_stats()
     teachers = Teacher.get_all_active()
 
-    # Get today's stats
     today_records = Attendance.get_daily_report(date.today())
     checked_in_today = len([r for r in today_records if not r['check_out_time']])
     completed_today = len([r for r in today_records if r['check_out_time']])
@@ -370,5 +370,4 @@ async def send_statistics(query, lang: str) -> None:
 
     await query.edit_message_text(message, parse_mode='Markdown')
 
-    # Log action
     AdminLog.log_action(query.from_user.id, "viewed_statistics")
