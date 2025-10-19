@@ -3,7 +3,6 @@ User notification preference management.
 Allows users to view their notification settings.
 
 PHASE 2: Notifications are always enabled for all users.
-Users can view the notification schedule via /notifications command.
 """
 import logging
 from telegram import Update
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Handle /notifications command.
-    Shows notification schedule information (view-only, no toggle).
+    Shows notification schedule information (view-only, no toggle button).
 
     Args:
         update: Telegram update object
@@ -44,13 +43,15 @@ async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     message = get_message(
         lang,
-        'notification_info',
+        'notification_settings',
+        status='enabled',  # Always enabled
         morning_time=notification_times['morning_reminder'].strftime('%H:%M'),
         late_time=notification_times['late_warning'].strftime('%H:%M'),
         checkout_time=notification_times['checkout_reminder'].strftime('%H:%M'),
         forgotten_time=notification_times['forgotten_checkout'].strftime('%H:%M')
     )
 
+    # Send message WITHOUT button (removed InlineKeyboardMarkup)
     await update.message.reply_text(
         message,
         parse_mode='Markdown'

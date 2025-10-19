@@ -215,7 +215,7 @@ MESSAGES = {
         "• Late Warning: {late_time}\n"
         "• Checkout Reminder: {checkout_time}\n"
         "• Forgotten Checkout: {forgotten_time}\n\n"
-        "Toggle notifications using the button below."
+        "You will receive automatic reminders to maintain perfect attendance!"
     ),
     'notification_toggled': "✅ Notifications {status}",
     'notification_enabled': (

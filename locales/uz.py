@@ -215,7 +215,7 @@ MESSAGES = {
         "• Kech qolish ogohlantirish: {late_time}\n"
         "• Ketish eslatmasi: {checkout_time}\n"
         "• Unutilgan ketish: {forgotten_time}\n\n"
-        "Quyidagi tugma bilan bildirishnomalarni yoqing/o'chiring."
+        "Siz davomat uchun avtomatik eslatmalar olasiz!"
     ),
     'notification_toggled': "✅ Bildirishnomalar {status}",
     'notification_enabled': (
