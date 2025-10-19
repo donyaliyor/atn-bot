@@ -77,6 +77,7 @@ async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     current_lang = Teacher.get_language(user.id)
 
     # Create inline keyboard with language options
+    # Keep flag emojis for language selection as this is standard practice
     keyboard = [
         [InlineKeyboardButton("🇬🇧 English", callback_data="lang_en")],
         [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")],

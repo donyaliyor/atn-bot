@@ -241,9 +241,9 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             if record['check_out_time']:
                 check_out = datetime.fromisoformat(record['check_out_time']).strftime('%H:%M')
                 hours = record['total_hours']
-                message += f"📅 {date_str}\n  ✅ {check_in} → 🚪 {check_out} ({hours:.1f}h)\n\n"
+                message += f"{date_str}\n  ✅ {check_in} → {check_out} ({hours:.1f}h)\n\n"
             else:
-                message += f"📅 {date_str}\n  ✅ {check_in} → ⏳ Not checked out\n\n"
+                message += f"{date_str}\n  ✅ {check_in} → Not checked out\n\n"
 
     await update.message.reply_text(message, parse_mode='Markdown')
 
@@ -273,14 +273,14 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     active_teachers = len(Teacher.get_all_active())
 
     message = (
-        f"📊 **Database Statistics**\n\n"
-        f"👥 Total Teachers: {stats['teachers']}\n"
-        f"✅ Active Teachers: {active_teachers}\n"
-        f"📝 Attendance Records: {stats['attendance_records']}\n"
-        f"📋 Admin Logs: {stats['admin_logs']}\n\n"
-        f"🔧 Database: {Config.DB_PATH}\n"
-        f"📍 School Location: ({Config.SCHOOL_LATITUDE:.4f}, {Config.SCHOOL_LONGITUDE:.4f})\n"
-        f"📏 Check-in Radius: {Config.RADIUS_METERS}m"
+        f"**Database Statistics**\n\n"
+        f"Total Teachers: {stats['teachers']}\n"
+        f"Active Teachers: {active_teachers}\n"
+        f"Attendance Records: {stats['attendance_records']}\n"
+        f"Admin Logs: {stats['admin_logs']}\n\n"
+        f"Database: {Config.DB_PATH}\n"
+        f"School Location: ({Config.SCHOOL_LATITUDE:.4f}, {Config.SCHOOL_LONGITUDE:.4f})\n"
+        f"Check-in Radius: {Config.RADIUS_METERS}m"
     )
 
     await update.message.reply_text(message, parse_mode='Markdown')
@@ -373,7 +373,7 @@ def main() -> None:
     logger.info("Starting health check server on port 8080...")
     health_thread = threading.Thread(target=run_health_server, daemon=True)
     health_thread.start()
-    logger.info("✅ Health check server started")
+    logger.info("Health check server started")
 
     # Validate configuration
     logger.info("Validating configuration...")
@@ -456,9 +456,9 @@ def main() -> None:
     logger.info("=" * 60)
 
     # Start the bot
-    logger.info("🚀 Bot is ready! Starting polling...")
+    logger.info("Bot is ready! Starting polling...")
     logger.info("=" * 60)
-    logger.info("✨ Features:")
+    logger.info("Features:")
     logger.info("  - Multi-language support (EN/RU/UZ)")
     logger.info("  - Persistent menu buttons")
     logger.info("  - Location-based check-in/out")

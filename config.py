@@ -33,7 +33,7 @@ class Config:
     ]
 
     # Application Settings
-    DEFAULT_LANGUAGE: str = os.getenv('DEFAULT_LANGUAGE', 'en')
+    DEFAULT_LANGUAGE: str = os.getenv('DEFAULT_LANGUAGE', 'uz')  # Changed from 'en' to 'uz'
     SUPPORTED_LANGUAGES: List[str] = ['en', 'ru', 'uz']
     TIMEZONE: str = os.getenv('TIMEZONE', 'Asia/Tashkent')
 

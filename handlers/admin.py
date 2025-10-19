@@ -27,16 +27,16 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     keyboard = [
         [
-            InlineKeyboardButton("📊 Today's Report", callback_data="admin_today"),
-            InlineKeyboardButton("📅 Weekly Report", callback_data="admin_week")
+            InlineKeyboardButton("Today's Report", callback_data="admin_today"),
+            InlineKeyboardButton("Weekly Report", callback_data="admin_week")
         ],
         [
-            InlineKeyboardButton("📥 Export CSV (Today)", callback_data="admin_csv_today"),
-            InlineKeyboardButton("📥 Export CSV (Week)", callback_data="admin_csv_week")
+            InlineKeyboardButton("Export CSV (Today)", callback_data="admin_csv_today"),
+            InlineKeyboardButton("Export CSV (Week)", callback_data="admin_csv_week")
         ],
         [
-            InlineKeyboardButton("👥 User List", callback_data="admin_users"),
-            InlineKeyboardButton("📈 Statistics", callback_data="admin_stats")
+            InlineKeyboardButton("User List", callback_data="admin_users"),
+            InlineKeyboardButton("Statistics", callback_data="admin_stats")
         ]
     ]
 
@@ -107,13 +107,13 @@ async def send_today_report(query, lang: str) -> None:
         if record['check_out_time']:
             check_out_time = datetime.fromisoformat(record['check_out_time']).strftime('%H:%M')
             hours = record['total_hours']
-            message += f"✅ {name}\n   ⏰ {check_in_time} → {check_out_time} ({hours:.1f}h)\n\n"
+            message += f"✅ {name}\n   {check_in_time} → {check_out_time} ({hours:.1f}h)\n\n"
             checked_out += 1
         else:
-            message += f"🔵 {name}\n   ⏰ {check_in_time} → ⏳ Still working\n\n"
+            message += f"• {name}\n   {check_in_time} → Still working\n\n"
             checked_in += 1
 
-    message += f"\n📊 **Summary:**\n"
+    message += f"\n**Summary:**\n"
     message += f"Total: {len(records)} teachers\n"
     message += f"Checked in: {checked_in + checked_out}\n"
     message += f"Still working: {checked_in}\n"
@@ -152,7 +152,7 @@ async def send_week_report(query, lang: str) -> None:
         if week_records:
             total_hours = sum(r['total_hours'] or 0 for r in week_records)
             days_worked = len(week_records)
-            message += f"👤 {name}: {days_worked} days, {total_hours:.1f}h total\n"
+            message += f"• {name}: {days_worked} days, {total_hours:.1f}h total\n"
 
     await query.edit_message_text(message, parse_mode='Markdown')
 
@@ -188,7 +188,7 @@ async def send_csv_export(query, lang: str, period: str) -> None:
         await query.answer(get_message(lang, 'admin_no_data_export'), show_alert=True)
         await query.edit_message_text(
             get_message(lang, 'admin_no_data_export') + "\n\n" +
-            "💡 Try checking in first to create attendance records.",
+            "Try checking in first to create attendance records.",
             parse_mode='Markdown'
         )
         return
@@ -243,9 +243,9 @@ async def send_csv_export(query, lang: str, period: str) -> None:
             filename=filename,
             caption=(
                 f"✅ **CSV Export Complete**\n\n"
-                f"📄 File: `{filename}`\n"
-                f"📊 Records: {len(records)}\n"
-                f"💾 Database: `{Config.DB_PATH}`\n\n"
+                f"File: `{filename}`\n"
+                f"Records: {len(records)}\n"
+                f"Database: `{Config.DB_PATH}`\n\n"
                 f"The file has been sent above. You can:\n"
                 f"• Download it to your device\n"
                 f"• Open in spreadsheet software\n"
@@ -256,16 +256,16 @@ async def send_csv_export(query, lang: str, period: str) -> None:
 
         logger.info(f"CSV file sent successfully: {filename}")
 
-        await query.answer("📧 CSV file sent!", show_alert=False)
+        await query.answer("CSV file sent!", show_alert=False)
 
         # Log action
         AdminLog.log_action(query.from_user.id, f"exported_csv_{period}", details=filename)
 
     except Exception as e:
         logger.error(f"Error sending CSV file: {e}", exc_info=True)
-        await query.answer(f"❌ Error: {str(e)}", show_alert=True)
+        await query.answer(f"Error: {str(e)}", show_alert=True)
         await query.message.reply_text(
-            f"⚠️ Failed to send CSV export.\n\n"
+            f"Failed to send CSV export.\n\n"
             f"Error: `{str(e)}`\n\n"
             f"Contact admin or check logs.",
             parse_mode='Markdown'
@@ -285,8 +285,8 @@ async def send_user_list(query, lang: str) -> None:
         admin_badge = " 🔑" if teacher['is_admin'] else ""
         lang_badge = f" [{teacher['language'].upper()}]"
 
-        message += f"👤 {name} {admin_badge}{lang_badge}\n"
-        message += f"   ID: `{teacher['user_id']}` | {username}\n\n"
+        message += f"• {name}{admin_badge}{lang_badge}\n"
+        message += f"  ID: `{teacher['user_id']}` | {username}\n\n"
 
     await query.edit_message_text(message, parse_mode='Markdown')
 
@@ -308,21 +308,21 @@ async def send_statistics(query, lang: str) -> None:
 
     message = get_message(lang, 'admin_stats_header')
     message += f"\n\n**Database:**\n"
-    message += f"👥 Total Teachers: {stats['teachers']}\n"
-    message += f"✅ Active Teachers: {len(teachers)}\n"
-    message += f"📝 Total Records: {stats['attendance_records']}\n"
-    message += f"📋 Admin Logs: {stats['admin_logs']}\n\n"
+    message += f"Total Teachers: {stats['teachers']}\n"
+    message += f"Active Teachers: {len(teachers)}\n"
+    message += f"Total Records: {stats['attendance_records']}\n"
+    message += f"Admin Logs: {stats['admin_logs']}\n\n"
 
     message += f"**Today ({date.today().strftime('%Y-%m-%d')}):**\n"
-    message += f"🔵 Currently Working: {checked_in_today}\n"
-    message += f"✅ Completed: {completed_today}\n"
-    message += f"📊 Total Check-ins: {len(today_records)}\n\n"
+    message += f"Currently Working: {checked_in_today}\n"
+    message += f"Completed: {completed_today}\n"
+    message += f"Total Check-ins: {len(today_records)}\n\n"
 
     message += f"**Configuration:**\n"
-    message += f"📍 Location: ({Config.SCHOOL_LATITUDE:.4f}, {Config.SCHOOL_LONGITUDE:.4f})\n"
-    message += f"📏 Radius: {Config.RADIUS_METERS}m\n"
-    message += f"🌍 Languages: {', '.join(Config.SUPPORTED_LANGUAGES)}\n"
-    message += f"🔧 DB: `{Config.DB_PATH}`"
+    message += f"Location: ({Config.SCHOOL_LATITUDE:.4f}, {Config.SCHOOL_LONGITUDE:.4f})\n"
+    message += f"Radius: {Config.RADIUS_METERS}m\n"
+    message += f"Languages: {', '.join(Config.SUPPORTED_LANGUAGES)}\n"
+    message += f"DB: `{Config.DB_PATH}`"
 
     await query.edit_message_text(message, parse_mode='Markdown')
 

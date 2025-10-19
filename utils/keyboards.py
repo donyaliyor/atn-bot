@@ -78,16 +78,16 @@ def get_main_menu_keyboard(lang: str = 'en') -> ReplyKeyboardMarkup:
     """
     keyboard = [
         [
-            KeyboardButton("✅ " + get_message(lang, 'btn_checkin')),
-            KeyboardButton("🚪 " + get_message(lang, 'btn_checkout'))
+            KeyboardButton(get_message(lang, 'btn_checkin')),
+            KeyboardButton(get_message(lang, 'btn_checkout'))
         ],
         [
-            KeyboardButton("📊 " + get_message(lang, 'btn_status')),
-            KeyboardButton("📜 " + get_message(lang, 'btn_history'))
+            KeyboardButton(get_message(lang, 'btn_status')),
+            KeyboardButton(get_message(lang, 'btn_history'))
         ],
         [
-            KeyboardButton("🌍 " + get_message(lang, 'btn_language')),
-            KeyboardButton("❓ " + get_message(lang, 'btn_help'))
+            KeyboardButton(get_message(lang, 'btn_language')),
+            KeyboardButton(get_message(lang, 'btn_help'))
         ]
     ]
 
@@ -116,20 +116,20 @@ def get_admin_keyboard(lang: str = 'en') -> ReplyKeyboardMarkup:
     """
     keyboard = [
         [
-            KeyboardButton("✅ " + get_message(lang, 'btn_checkin')),
-            KeyboardButton("🚪 " + get_message(lang, 'btn_checkout'))
+            KeyboardButton(get_message(lang, 'btn_checkin')),
+            KeyboardButton(get_message(lang, 'btn_checkout'))
         ],
         [
-            KeyboardButton("📊 " + get_message(lang, 'btn_status')),
-            KeyboardButton("📜 " + get_message(lang, 'btn_history'))
+            KeyboardButton(get_message(lang, 'btn_status')),
+            KeyboardButton(get_message(lang, 'btn_history'))
         ],
         [
-            KeyboardButton("🔐 " + get_message(lang, 'btn_admin')),
-            KeyboardButton("📈 " + get_message(lang, 'btn_stats'))
+            KeyboardButton(get_message(lang, 'btn_admin')),
+            KeyboardButton(get_message(lang, 'btn_stats'))
         ],
         [
-            KeyboardButton("🌍 " + get_message(lang, 'btn_language')),
-            KeyboardButton("❓ " + get_message(lang, 'btn_help'))
+            KeyboardButton(get_message(lang, 'btn_language')),
+            KeyboardButton(get_message(lang, 'btn_help'))
         ]
     ]
 
