@@ -1,6 +1,8 @@
 """
 Admin panel handlers for attendance management.
 Provides reports, CSV export, and user management.
+
+PHASE 2: Added work schedule view command.
 """
 import logging
 import csv
@@ -11,6 +13,7 @@ from telegram.ext import ContextTypes
 
 from config import Config
 from database.models import Attendance, Teacher, AdminLog
+from database.schedule_models import WorkSchedule
 from locales import get_message
 from utils.decorators import admin_only
 
@@ -52,6 +55,47 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     # Log admin action
     AdminLog.log_action(user.id, "accessed_admin_panel")
+
+
+@admin_only
+async def view_schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Show current work schedule configuration.
+    Read-only view of schedule from Config environment variables.
+
+    PHASE 2: New admin command to view work schedule settings.
+
+    Args:
+        update: Telegram update object
+        context: Callback context
+    """
+    user = update.effective_user
+    logger.info(f"Admin {user.id} requested schedule view")
+
+    # Get user's language
+    lang = Teacher.get_language(user.id)
+
+    # Get schedule information from Config-based WorkSchedule
+    schedule_info = WorkSchedule.get_schedule_info()
+
+    # Format message with schedule details
+    message = get_message(
+        lang,
+        'schedule_info',
+        start_time=schedule_info['start_time'],
+        end_time=schedule_info['end_time'],
+        grace_period=schedule_info['grace_period'],
+        work_days=schedule_info['work_days_text'],
+        morning_reminder=schedule_info['notification_times']['morning'],
+        late_warning=schedule_info['notification_times']['late'],
+        checkout_reminder=schedule_info['notification_times']['checkout'],
+        forgotten_checkout=schedule_info['notification_times']['forgotten']
+    )
+
+    await update.message.reply_text(message, parse_mode='Markdown')
+
+    # Log admin action
+    AdminLog.log_action(user.id, "viewed_work_schedule")
 
 
 async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

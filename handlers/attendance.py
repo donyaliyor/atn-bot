@@ -1,6 +1,8 @@
 """
 Attendance handlers for check-in and check-out operations.
-Now with multi-language support!
+Now with multi-language support and late detection!
+
+PHASE 2: Added late arrival detection with grace period.
 """
 import logging
 from datetime import datetime
@@ -9,6 +11,7 @@ from telegram.ext import ContextTypes
 
 from config import Config
 from database.models import Attendance, Teacher
+from database.schedule_models import WorkSchedule
 from utils.location import is_within_radius, validate_coordinates, format_coordinates
 from utils.decorators import weekday_only, registered_user_only
 from utils.keyboards import get_location_keyboard, remove_keyboard
@@ -197,6 +200,8 @@ async def process_checkin(
     """
     Process check-in with validated location.
 
+    PHASE 2: Now detects late arrivals based on work schedule.
+
     Args:
         update: Telegram update object
         context: Callback context
@@ -208,23 +213,56 @@ async def process_checkin(
     user = update.effective_user
     check_in_time = datetime.now()
 
-    # Record check-in
-    success = Attendance.check_in(user.id, latitude, longitude, check_in_time)
+    # PHASE 2: Detect late arrival
+    is_late, minutes_late = WorkSchedule.is_late_checkin(check_in_time)
+    checkin_status = WorkSchedule.get_checkin_status(check_in_time)
+
+    logger.info(
+        f"Check-in for user {user.id}: "
+        f"{'LATE' if is_late else 'ON TIME'} "
+        f"({minutes_late} minutes late)" if is_late else "(on time)"
+    )
+
+    # Record check-in with lateness info
+    success = Attendance.check_in(
+        user.id,
+        latitude,
+        longitude,
+        check_in_time,
+        late_minutes=minutes_late,
+        checkin_status=checkin_status
+    )
 
     if success:
-        message = get_message(
-            lang,
-            'checkin_success',
-            time=check_in_time.strftime('%H:%M:%S'),
-            distance=f"{distance:.1f}",
-            date=check_in_time.strftime('%Y-%m-%d')
-        )
+        # Choose message based on whether user is late
+        if is_late:
+            message = get_message(
+                lang,
+                'checkin_success_late',
+                time=check_in_time.strftime('%H:%M:%S'),
+                minutes_late=minutes_late,
+                distance=f"{distance:.1f}",
+                date=check_in_time.strftime('%Y-%m-%d')
+            )
+        else:
+            message = get_message(
+                lang,
+                'checkin_success',
+                time=check_in_time.strftime('%H:%M:%S'),
+                distance=f"{distance:.1f}",
+                date=check_in_time.strftime('%Y-%m-%d')
+            )
+
         await update.message.reply_text(
             message,
             parse_mode='Markdown',
             reply_markup=remove_keyboard()
         )
-        logger.info(f"User {user.id} checked in successfully at {check_in_time}")
+
+        logger.info(
+            f"User {user.id} checked in successfully at {check_in_time} "
+            f"(status: {checkin_status}, late: {minutes_late} min)"
+        )
     else:
         message = get_message(lang, 'error_checkin_failed')
         await update.message.reply_text(message, reply_markup=remove_keyboard())

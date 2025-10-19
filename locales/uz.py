@@ -1,5 +1,6 @@
 """
 Uzbek language translations - Clean UI version with minimal emojis.
+PHASE 2: Added notification and schedule messages.
 """
 
 MESSAGES = {
@@ -27,6 +28,7 @@ MESSAGES = {
         "/history - Oxirgi 7 kun tarixi\n\n"
         "**Sozlamalar:**\n"
         "/language - Tilni o'zgartirish\n"
+        "/notifications - Eslatmalarni boshqarish\n"
         "/myid - ID ni ko'rsatish\n"
         "/help - Yordamni ko'rsatish\n"
         "/cancel - Operatsiyani bekor qilish\n"
@@ -34,6 +36,7 @@ MESSAGES = {
     'help_admin': (
         "\n**Administrator buyruqlari:**\n"
         "/admin - Administrator paneli\n"
+        "/schedule - Ish jadvali\n"
         "/stats - Statistika\n"
     ),
 
@@ -198,4 +201,78 @@ MESSAGES = {
     'yes': "Ha",
     'no': "Yo'q",
     'na': "M/Y",
+
+    # ========================================================================
+    # PHASE 2: Notification System & Work Schedule
+    # ========================================================================
+
+    # Notification Preferences
+    'notification_settings': (
+        "**Bildirishnoma sozlamalari**\n\n"
+        "Joriy holat: {status}\n\n"
+        "**Bildirishnoma jadvali:**\n"
+        "• Ertalabki eslatma: {morning_time}\n"
+        "• Kech qolish ogohlantirish: {late_time}\n"
+        "• Ketish eslatmasi: {checkout_time}\n"
+        "• Unutilgan ketish: {forgotten_time}\n\n"
+        "Quyidagi tugma bilan bildirishnomalarni yoqing/o'chiring."
+    ),
+    'notification_toggled': "✅ Bildirishnomalar {status}",
+    'notification_enabled': (
+        "Siz o'z vaqtida eslatmalar olasiz:\n"
+        "• Ertalabki kelish eslatmasi\n"
+        "• Kech qolish haqida ogohlantirish\n"
+        "• Ketish eslatmasi\n"
+        "• Unutilgan ketish ogohlantirish"
+    ),
+    'notification_disabled': "Siz eslatmalar olmaysiz.",
+
+    # Late Check-in
+    'checkin_success_late': (
+        "⚠️ **Kech qoldingiz**\n\n"
+        "Vaqt: {time}\n"
+        "Sana: {date}\n"
+        "Kechikish: {minutes_late} daqiqa\n"
+        "Masofa: {distance}m\n\n"
+        "Iltimos, ertaga o'z vaqtida keling."
+    ),
+
+    # Admin Schedule View
+    'schedule_info': (
+        "**Ish jadvali sozlamalari**\n\n"
+        "**Ish vaqti:**\n"
+        "• Boshlanish: {start_time}\n"
+        "• Tugash: {end_time}\n"
+        "• Imtiyoz vaqti: {grace_period} daqiqa\n"
+        "• Ish kunlari: {work_days}\n\n"
+        "**Bildirishnoma vaqtlari:**\n"
+        "• Ertalabki eslatma: {morning_reminder}\n"
+        "• Kech qolish ogohlantirish: {late_warning}\n"
+        "• Ketish eslatmasi: {checkout_reminder}\n"
+        "• Unutilgan ketish: {forgotten_checkout}\n\n"
+        "💡 Jadvalni o'zgartirish uchun `flyctl secrets set` dan foydalaning"
+    ),
+
+    # Notification Messages (sent by notification handlers)
+    'notif_morning_reminder': (
+        "🌅 **Xayrli tong!**\n\n"
+        "Maktabga yetganingizda belgilashni unutmang.\n"
+        "Ish {start_time} da boshlanadi."
+    ),
+    'notif_late_warning': (
+        "⏰ **Kech qolish ogohlantirish**\n\n"
+        "Siz hali belgilanmadingiz.\n"
+        "Imtiyoz vaqti {deadline} da tugaydi.\n"
+        "Iltimos, hozir belgilang!"
+    ),
+    'notif_checkout_reminder': (
+        "🏁 **Ketishni belgilash vaqti**\n\n"
+        "Ish kuni tez orada tugaydi ({end_time}).\n"
+        "Ketishdan oldin belgilashni unutmang!"
+    ),
+    'notif_forgotten_checkout': (
+        "🚨 **Ketishni belgilashni unutdingiz!**\n\n"
+        "Siz ketishni belgilashni unutdingiz!\n"
+        "Iltimos, ish soatlarini qayd qilish uchun hozir belgilang."
+    ),
 }

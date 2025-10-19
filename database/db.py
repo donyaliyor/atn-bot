@@ -1,6 +1,8 @@
 """
 Database connection management with context manager.
 Provides safe SQLite operations with automatic cleanup.
+
+PHASE 2 UPDATE: Added notification tracking (schedule moved to Config).
 """
 import sqlite3
 import logging
@@ -50,11 +52,17 @@ def init_database() -> None:
     Initialize database with required tables.
     Creates tables if they don't exist.
     Safe to call multiple times (idempotent).
+
+    PHASE 2: Added notifications_log and updated teachers/attendance tables.
     """
     logger.info("Initializing database...")
 
     with get_db() as conn:
         cursor = conn.cursor()
+
+        # ====================================================================
+        # EXISTING TABLES (Phase 1)
+        # ====================================================================
 
         # Teachers table
         cursor.execute("""
@@ -64,7 +72,7 @@ def init_database() -> None:
                 first_name TEXT NOT NULL,
                 last_name TEXT,
                 phone_number TEXT,
-                language TEXT DEFAULT 'en',
+                language TEXT DEFAULT 'uz',
                 is_admin INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -109,7 +117,78 @@ def init_database() -> None:
         """)
         logger.debug("Admin logs table created/verified")
 
-        # Create indices for performance
+        # ====================================================================
+        # PHASE 2: NEW TABLE FOR NOTIFICATION TRACKING
+        # ====================================================================
+
+        # Notifications log table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notifications_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                notification_type TEXT NOT NULL,
+                sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                was_delivered INTEGER DEFAULT 1,
+                error_message TEXT,
+                FOREIGN KEY (user_id) REFERENCES teachers(user_id)
+            )
+        """)
+        logger.debug("Notifications log table created/verified")
+
+        # ====================================================================
+        # PHASE 2: ALTER EXISTING TABLES (Add new columns)
+        # ====================================================================
+
+        # Add notification preferences to teachers table
+        try:
+            # Check if columns already exist
+            cursor.execute("PRAGMA table_info(teachers)")
+            columns = [column[1] for column in cursor.fetchall()]
+
+            if 'notification_enabled' not in columns:
+                cursor.execute("""
+                    ALTER TABLE teachers
+                    ADD COLUMN notification_enabled INTEGER DEFAULT 1
+                """)
+                logger.info("Added notification_enabled column to teachers table")
+
+            if 'notification_time_before' not in columns:
+                cursor.execute("""
+                    ALTER TABLE teachers
+                    ADD COLUMN notification_time_before INTEGER DEFAULT 15
+                """)
+                logger.info("Added notification_time_before column to teachers table")
+
+        except sqlite3.Error as e:
+            logger.error(f"Error adding columns to teachers table: {e}")
+
+        # Add lateness tracking to attendance table
+        try:
+            cursor.execute("PRAGMA table_info(attendance)")
+            columns = [column[1] for column in cursor.fetchall()]
+
+            if 'late_minutes' not in columns:
+                cursor.execute("""
+                    ALTER TABLE attendance
+                    ADD COLUMN late_minutes INTEGER DEFAULT 0
+                """)
+                logger.info("Added late_minutes column to attendance table")
+
+            if 'checkin_status' not in columns:
+                cursor.execute("""
+                    ALTER TABLE attendance
+                    ADD COLUMN checkin_status TEXT DEFAULT 'on_time'
+                """)
+                logger.info("Added checkin_status column to attendance table")
+
+        except sqlite3.Error as e:
+            logger.error(f"Error adding columns to attendance table: {e}")
+
+        # ====================================================================
+        # CREATE INDICES FOR PERFORMANCE
+        # ====================================================================
+
+        # Existing indices
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_attendance_user_date
             ON attendance(user_id, date)
@@ -126,6 +205,29 @@ def init_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_admin_logs_timestamp
             ON admin_logs(timestamp)
         """)
+
+        # PHASE 2: New indices
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_id
+            ON notifications_log(user_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notifications_sent_at
+            ON notifications_log(sent_at)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_notifications_type
+            ON notifications_log(notification_type)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_attendance_checkin_status
+            ON attendance(checkin_status)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_teachers_notifications
+            ON teachers(notification_enabled)
+        """)
+
         logger.debug("Database indices created/verified")
 
     logger.info("Database initialization complete")
@@ -134,6 +236,8 @@ def init_database() -> None:
 def get_db_stats() -> dict:
     """
     Get database statistics for monitoring.
+
+    PHASE 2: Added notifications stats.
 
     Returns:
         dict: Database statistics
@@ -150,8 +254,28 @@ def get_db_stats() -> dict:
         cursor.execute("SELECT COUNT(*) FROM admin_logs")
         log_count = cursor.fetchone()[0]
 
+        # PHASE 2: Notification stats
+        cursor.execute("SELECT COUNT(*) FROM notifications_log")
+        notifications_count = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM notifications_log
+            WHERE sent_at >= datetime('now', '-7 days')
+        """)
+        notifications_week = cursor.fetchone()[0]
+
+        # Teachers with notifications enabled
+        cursor.execute("""
+            SELECT COUNT(*) FROM teachers
+            WHERE notification_enabled = 1 AND is_active = 1
+        """)
+        notifications_enabled_count = cursor.fetchone()[0]
+
         return {
             'teachers': teacher_count,
             'attendance_records': attendance_count,
-            'admin_logs': log_count
+            'admin_logs': log_count,
+            'notifications_total': notifications_count,
+            'notifications_this_week': notifications_week,
+            'notifications_enabled_users': notifications_enabled_count
         }

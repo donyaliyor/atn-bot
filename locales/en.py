@@ -1,5 +1,6 @@
 """
 English language translations - Clean UI version with minimal emojis.
+PHASE 2: Added notification and schedule messages.
 """
 
 MESSAGES = {
@@ -27,6 +28,7 @@ MESSAGES = {
         "/history - View last 7 days\n\n"
         "**Settings:**\n"
         "/language - Change language\n"
+        "/notifications - Toggle reminders\n"
         "/myid - Show your user ID\n"
         "/help - Show this help\n"
         "/cancel - Cancel operation\n"
@@ -34,6 +36,7 @@ MESSAGES = {
     'help_admin': (
         "\n**Admin Commands:**\n"
         "/admin - Access admin panel\n"
+        "/schedule - View work schedule\n"
         "/stats - View statistics\n"
     ),
 
@@ -198,4 +201,78 @@ MESSAGES = {
     'yes': "Yes",
     'no': "No",
     'na': "N/A",
+
+    # ========================================================================
+    # PHASE 2: Notification System & Work Schedule
+    # ========================================================================
+
+    # Notification Preferences
+    'notification_settings': (
+        "**Notification Settings**\n\n"
+        "Current status: {status}\n\n"
+        "**Notification Schedule:**\n"
+        "• Morning Reminder: {morning_time}\n"
+        "• Late Warning: {late_time}\n"
+        "• Checkout Reminder: {checkout_time}\n"
+        "• Forgotten Checkout: {forgotten_time}\n\n"
+        "Toggle notifications using the button below."
+    ),
+    'notification_toggled': "✅ Notifications {status}",
+    'notification_enabled': (
+        "You will receive timely reminders:\n"
+        "• Morning check-in reminder\n"
+        "• Late arrival warning\n"
+        "• Checkout reminder\n"
+        "• Forgotten checkout alert"
+    ),
+    'notification_disabled': "You will not receive any reminders.",
+
+    # Late Check-in
+    'checkin_success_late': (
+        "⚠️ **Late Check-In**\n\n"
+        "Time: {time}\n"
+        "Date: {date}\n"
+        "Late by: {minutes_late} minutes\n"
+        "Distance: {distance}m\n\n"
+        "Please try to arrive on time tomorrow."
+    ),
+
+    # Admin Schedule View
+    'schedule_info': (
+        "**Work Schedule Configuration**\n\n"
+        "**Work Hours:**\n"
+        "• Start: {start_time}\n"
+        "• End: {end_time}\n"
+        "• Grace Period: {grace_period} minutes\n"
+        "• Work Days: {work_days}\n\n"
+        "**Notification Times:**\n"
+        "• Morning Reminder: {morning_reminder}\n"
+        "• Late Warning: {late_warning}\n"
+        "• Checkout Reminder: {checkout_reminder}\n"
+        "• Forgotten Checkout: {forgotten_checkout}\n\n"
+        "💡 To update schedule, use `flyctl secrets set`"
+    ),
+
+    # Notification Messages (sent by notification handlers)
+    'notif_morning_reminder': (
+        "🌅 **Good Morning!**\n\n"
+        "Don't forget to check in when you arrive at school.\n"
+        "Work starts at {start_time}."
+    ),
+    'notif_late_warning': (
+        "⏰ **Late Check-In Warning**\n\n"
+        "You haven't checked in yet.\n"
+        "Grace period ends at {deadline}.\n"
+        "Please check in now!"
+    ),
+    'notif_checkout_reminder': (
+        "🏁 **Time to Check Out**\n\n"
+        "Work day is ending soon ({end_time}).\n"
+        "Remember to check out before leaving!"
+    ),
+    'notif_forgotten_checkout': (
+        "🚨 **Forgotten Check-Out Alert**\n\n"
+        "You forgot to check out!\n"
+        "Please check out now to record your work hours."
+    ),
 }

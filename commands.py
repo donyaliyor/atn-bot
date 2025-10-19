@@ -24,10 +24,12 @@ COMMANDS = {
         BotCommand("status", "View today's attendance status"),
         BotCommand("history", "View attendance history (last 7 days)"),
         BotCommand("language", "Change language (EN/RU/UZ)"),
+        BotCommand("notifications", "Toggle notification reminders"),
         BotCommand("myid", "Show your user ID and info"),
         BotCommand("help", "Show help and available commands"),
         BotCommand("cancel", "Cancel current operation"),
         BotCommand("admin", "Admin panel (admins only)"),
+        BotCommand("schedule", "View work schedule (admins only)"),
         BotCommand("stats", "View statistics (admins only)"),
     ],
     'ru': [
@@ -37,10 +39,12 @@ COMMANDS = {
         BotCommand("status", "Посмотреть сегодняшний статус"),
         BotCommand("history", "История посещений (последние 7 дней)"),
         BotCommand("language", "Изменить язык (EN/RU/UZ)"),
+        BotCommand("notifications", "Переключить уведомления"),
         BotCommand("myid", "Показать ваш ID и информацию"),
         BotCommand("help", "Показать справку и команды"),
         BotCommand("cancel", "Отменить текущую операцию"),
         BotCommand("admin", "Панель администратора (только админы)"),
+        BotCommand("schedule", "Просмотр расписания (только админы)"),
         BotCommand("stats", "Статистика (только админы)"),
     ],
     'uz': [
@@ -50,10 +54,12 @@ COMMANDS = {
         BotCommand("status", "Bugungi holatni ko'rish"),
         BotCommand("history", "Davomat tarixi (oxirgi 7 kun)"),
         BotCommand("language", "Tilni o'zgartirish (EN/RU/UZ)"),
+        BotCommand("notifications", "Bildirishnomalarni yoqish/o'chirish"),
         BotCommand("myid", "ID va ma'lumotlarni ko'rsatish"),
         BotCommand("help", "Yordam va buyruqlarni ko'rsatish"),
         BotCommand("cancel", "Joriy operatsiyani bekor qilish"),
         BotCommand("admin", "Administrator paneli (faqat adminlar)"),
+        BotCommand("schedule", "Ish jadvali (faqat adminlar)"),
         BotCommand("stats", "Statistika (faqat adminlar)"),
     ]
 }

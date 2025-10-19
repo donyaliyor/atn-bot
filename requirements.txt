@@ -3,5 +3,5 @@ python-telegram-bot==20.7
 geopy==2.4.1
 python-dotenv==1.0.0
 
-# Optional: Better date/time handling
+# Date/time handling and timezone support
 pytz==2024.1

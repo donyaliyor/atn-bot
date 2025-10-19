@@ -4,6 +4,8 @@ A Telegram bot for teacher attendance tracking with location validation.
 
 This bot enables teachers to check in and out using location verification,
 supports multiple languages (EN/RU/UZ), and provides admin features.
+
+PHASE 2: Added smart notification system with scheduled reminders.
 """
 import logging
 import sys
@@ -66,6 +68,121 @@ def run_health_server():
         server.serve_forever()
     except Exception as e:
         logger.error(f"Health check server error: {e}")
+
+
+# ============================================================================
+# PHASE 2: NOTIFICATION SYSTEM SETUP
+# ============================================================================
+
+def setup_notification_jobs(application: Application) -> None:
+    """
+    Set up all scheduled notification jobs using Config-based work schedule.
+
+    Schedules:
+    - Morning reminder: Before work start time
+    - Late warning: After grace period
+    - Checkout reminder: Before work end time
+    - Forgotten checkout: After work end time
+
+    Args:
+        application: Telegram application instance
+    """
+    logger.info("=" * 60)
+    logger.info("SETTING UP NOTIFICATION JOBS")
+    logger.info("=" * 60)
+
+    try:
+        import pytz
+        from handlers.notifications import (
+            send_morning_reminder,
+            send_late_warning,
+            send_checkout_reminder,
+            send_forgotten_checkout
+        )
+
+        # Get job queue
+        job_queue = application.job_queue
+
+        # Get timezone
+        try:
+            tz = pytz.timezone(Config.TIMEZONE)
+            logger.info(f"Using timezone: {Config.TIMEZONE}")
+        except Exception as e:
+            logger.error(f"Error loading timezone {Config.TIMEZONE}: {e}")
+            logger.warning("Falling back to UTC")
+            tz = pytz.UTC
+
+        # Get notification times from Config
+        notification_times = Config.get_notification_times()
+
+        logger.info("Notification times calculated from work schedule:")
+        logger.info(f"  - Work Hours: {Config.WORK_START_TIME} - {Config.WORK_END_TIME}")
+        logger.info(f"  - Grace Period: {Config.GRACE_PERIOD_MINUTES} minutes")
+        logger.info(f"  - Work Days: {Config.WORK_DAYS}")
+        logger.info("")
+
+        # Schedule 1: Morning Reminder
+        morning_time = notification_times['morning_reminder']
+        job_queue.run_daily(
+            send_morning_reminder,
+            time=morning_time,
+            days=(0, 1, 2, 3, 4),  # Monday-Friday (0=Monday, 4=Friday)
+            name='morning_reminder',
+            chat_id=None,
+            data=None,
+            job_kwargs={'timezone': tz}
+        )
+        logger.info(f"✅ Morning Reminder scheduled: {morning_time.strftime('%H:%M')} (weekdays)")
+
+        # Schedule 2: Late Warning
+        late_time = notification_times['late_warning']
+        job_queue.run_daily(
+            send_late_warning,
+            time=late_time,
+            days=(0, 1, 2, 3, 4),
+            name='late_warning',
+            chat_id=None,
+            data=None,
+            job_kwargs={'timezone': tz}
+        )
+        logger.info(f"✅ Late Warning scheduled: {late_time.strftime('%H:%M')} (weekdays)")
+
+        # Schedule 3: Checkout Reminder
+        checkout_time = notification_times['checkout_reminder']
+        job_queue.run_daily(
+            send_checkout_reminder,
+            time=checkout_time,
+            days=(0, 1, 2, 3, 4),
+            name='checkout_reminder',
+            chat_id=None,
+            data=None,
+            job_kwargs={'timezone': tz}
+        )
+        logger.info(f"✅ Checkout Reminder scheduled: {checkout_time.strftime('%H:%M')} (weekdays)")
+
+        # Schedule 4: Forgotten Checkout Alert
+        forgotten_time = notification_times['forgotten_checkout']
+        job_queue.run_daily(
+            send_forgotten_checkout,
+            time=forgotten_time,
+            days=(0, 1, 2, 3, 4),
+            name='forgotten_checkout',
+            chat_id=None,
+            data=None,
+            job_kwargs={'timezone': tz}
+        )
+        logger.info(f"✅ Forgotten Checkout Alert scheduled: {forgotten_time.strftime('%H:%M')} (weekdays)")
+
+        logger.info("")
+        logger.info("All notification jobs scheduled successfully!")
+        logger.info("=" * 60)
+
+    except ImportError as e:
+        logger.error(f"Error importing notification handlers: {e}")
+        logger.error("Notification system will not be available")
+    except Exception as e:
+        logger.error(f"Error setting up notification jobs: {e}", exc_info=True)
+        logger.error("Bot will continue without scheduled notifications")
 
 
 # ============================================================================
@@ -272,12 +389,17 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     stats = get_db_stats()
     active_teachers = len(Teacher.get_all_active())
 
+    # PHASE 2: Include notification stats
     message = (
         f"**Database Statistics**\n\n"
         f"Total Teachers: {stats['teachers']}\n"
         f"Active Teachers: {active_teachers}\n"
         f"Attendance Records: {stats['attendance_records']}\n"
         f"Admin Logs: {stats['admin_logs']}\n\n"
+        f"**Notifications (Phase 2)**\n"
+        f"Total Sent: {stats.get('notifications_total', 0)}\n"
+        f"This Week: {stats.get('notifications_this_week', 0)}\n"
+        f"Enabled Users: {stats.get('notifications_enabled_users', 0)}\n\n"
         f"Database: {Config.DB_PATH}\n"
         f"School Location: ({Config.SCHOOL_LATITUDE:.4f}, {Config.SCHOOL_LONGITUDE:.4f})\n"
         f"Check-in Radius: {Config.RADIUS_METERS}m"
@@ -373,7 +495,7 @@ def main() -> None:
     logger.info("Starting health check server on port 8080...")
     health_thread = threading.Thread(target=run_health_server, daemon=True)
     health_thread.start()
-    logger.info("Health check server started")
+    logger.info("✅ Health check server started")
 
     # Validate configuration
     logger.info("Validating configuration...")
@@ -391,6 +513,9 @@ def main() -> None:
         logger.info(f"  - Teachers: {stats['teachers']}")
         logger.info(f"  - Attendance Records: {stats['attendance_records']}")
         logger.info(f"  - Admin Logs: {stats['admin_logs']}")
+        # PHASE 2: Log notification stats
+        if 'notifications_total' in stats:
+            logger.info(f"  - Notifications Sent: {stats['notifications_total']}")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         logger.error("Please check database permissions and configuration")
@@ -406,11 +531,19 @@ def main() -> None:
     logger.info(f"  - Default Language: {Config.DEFAULT_LANGUAGE}")
     logger.info(f"  - Timezone: {Config.TIMEZONE}")
     logger.info(f"  - Log Level: {Config.LOG_LEVEL}")
+    # PHASE 2: Log work schedule
+    logger.info(f"  - Work Hours: {Config.WORK_START_TIME} - {Config.WORK_END_TIME}")
+    logger.info(f"  - Grace Period: {Config.GRACE_PERIOD_MINUTES} minutes")
+    logger.info(f"  - Work Days: {Config.WORK_DAYS}")
     logger.info("=" * 60)
 
     # Create application
     logger.info("Building Telegram application...")
     application = Application.builder().token(Config.BOT_TOKEN).build()
+
+    # PHASE 2: Set up notification jobs BEFORE registering handlers
+    logger.info("Setting up scheduled notification jobs...")
+    setup_notification_jobs(application)
 
     # Register basic command handlers
     logger.info("Registering command handlers...")
@@ -439,9 +572,15 @@ def main() -> None:
     application.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
     # Register admin handlers
-    from handlers.admin import admin_panel, admin_callback
+    from handlers.admin import admin_panel, admin_callback, view_schedule_command
     application.add_handler(CommandHandler("admin", admin_panel))
+    application.add_handler(CommandHandler("schedule", view_schedule_command))
     application.add_handler(CallbackQueryHandler(admin_callback, pattern="^admin_"))
+
+    # PHASE 2: Register notification preference handlers
+    from handlers.preferences import notifications_command, notification_toggle_callback
+    application.add_handler(CommandHandler("notifications", notifications_command))
+    application.add_handler(CallbackQueryHandler(notification_toggle_callback, pattern="^notif_toggle_"))
 
     # Register menu button handler (must be last text handler)
     application.add_handler(MessageHandler(
@@ -456,14 +595,17 @@ def main() -> None:
     logger.info("=" * 60)
 
     # Start the bot
-    logger.info("Bot is ready! Starting polling...")
+    logger.info("🚀 Bot is ready! Starting polling...")
     logger.info("=" * 60)
-    logger.info("Features:")
+    logger.info("✨ Features:")
     logger.info("  - Multi-language support (EN/RU/UZ)")
     logger.info("  - Persistent menu buttons")
     logger.info("  - Location-based check-in/out")
     logger.info("  - Admin panel with reports & CSV export")
     logger.info("  - Zero-downtime deployment")
+    logger.info("  - Smart notification system (Phase 2)")
+    logger.info("  - Late detection with grace period")
+    logger.info("  - User notification preferences")
     logger.info("=" * 60)
     logger.info("Press Ctrl+C to stop the bot")
     logger.info("=" * 60)

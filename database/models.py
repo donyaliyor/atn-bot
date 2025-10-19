@@ -1,6 +1,8 @@
 """
 Database models and operations.
 Provides CRUD operations for all database entities.
+
+PHASE 2: Added notification preferences and late arrival tracking.
 """
 import logging
 from datetime import datetime, date
@@ -135,6 +137,36 @@ class Teacher:
             return False
 
     @staticmethod
+    def set_notification_preference(user_id: int, enabled: bool) -> bool:
+        """
+        Set user's notification preference.
+
+        PHASE 2: New method for managing notification settings.
+
+        Args:
+            user_id: Telegram user ID
+            enabled: True to enable notifications, False to disable
+
+        Returns:
+            bool: True if successful
+        """
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE teachers
+                    SET notification_enabled = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?
+                """, (1 if enabled else 0, user_id))
+
+                logger.info(f"Notifications {'enabled' if enabled else 'disabled'} for user {user_id}")
+                return True
+
+        except Exception as e:
+            logger.error(f"Error setting notification preference for user {user_id}: {e}")
+            return False
+
+    @staticmethod
     def get_all_active() -> List[Dict[str, Any]]:
         """
         Get all active teachers.
@@ -161,16 +193,22 @@ class Attendance:
         user_id: int,
         latitude: float,
         longitude: float,
-        check_in_time: Optional[datetime] = None
+        check_in_time: Optional[datetime] = None,
+        late_minutes: int = 0,
+        checkin_status: str = 'on_time'
     ) -> bool:
         """
         Record a check-in.
+
+        PHASE 2: Now tracks lateness with late_minutes and checkin_status.
 
         Args:
             user_id: Telegram user ID
             latitude: Check-in latitude
             longitude: Check-in longitude
             check_in_time: Check-in timestamp (default: now)
+            late_minutes: Number of minutes late (default: 0)
+            checkin_status: Status - 'on_time', 'late', or 'very_late' (default: 'on_time')
 
         Returns:
             bool: True if successful
@@ -186,11 +224,16 @@ class Attendance:
                 cursor.execute("""
                     INSERT INTO attendance (
                         user_id, date, check_in_time,
-                        check_in_latitude, check_in_longitude, status
-                    ) VALUES (?, ?, ?, ?, ?, 'checked_in')
-                """, (user_id, today, check_in_time, latitude, longitude))
+                        check_in_latitude, check_in_longitude,
+                        status, late_minutes, checkin_status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (user_id, today, check_in_time, latitude, longitude,
+                      'checked_in', late_minutes, checkin_status))
 
-                logger.info(f"User {user_id} checked in at {check_in_time}")
+                logger.info(
+                    f"User {user_id} checked in at {check_in_time} "
+                    f"(status: {checkin_status}, late: {late_minutes} min)"
+                )
                 return True
 
         except Exception as e:
