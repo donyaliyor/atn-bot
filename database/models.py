@@ -2,9 +2,9 @@
 Database models and operations.
 Provides CRUD operations for all database entities.
 
-PHASE 2: Added notification preferences and late arrival tracking.
 """
 import logging
+import sqlite3
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
@@ -26,25 +26,11 @@ class Teacher:
         phone_number: Optional[str] = None,
         language: str = 'en'
     ) -> bool:
-        """
-        Create a new teacher or update existing one.
-
-        Args:
-            user_id: Telegram user ID
-            username: Telegram username
-            first_name: User's first name
-            last_name: User's last name
-            phone_number: User's phone number
-            language: User's preferred language
-
-        Returns:
-            bool: True if successful
-        """
+        """Create a new teacher or update existing one."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
 
-                # Check if admin
                 is_admin = 1 if Config.is_admin(user_id) else 0
 
                 cursor.execute("""
@@ -71,15 +57,7 @@ class Teacher:
 
     @staticmethod
     def get_by_id(user_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Get teacher by user ID.
-
-        Args:
-            user_id: Telegram user ID
-
-        Returns:
-            Optional[Dict]: Teacher data or None
-        """
+        """Get teacher by user ID."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -96,30 +74,13 @@ class Teacher:
 
     @staticmethod
     def get_language(user_id: int) -> str:
-        """
-        Get user's preferred language.
-
-        Args:
-            user_id: Telegram user ID
-
-        Returns:
-            str: Language code (default: 'en')
-        """
+        """Get user's preferred language."""
         teacher = Teacher.get_by_id(user_id)
         return teacher['language'] if teacher else Config.DEFAULT_LANGUAGE
 
     @staticmethod
     def set_language(user_id: int, language: str) -> bool:
-        """
-        Set user's preferred language.
-
-        Args:
-            user_id: Telegram user ID
-            language: Language code
-
-        Returns:
-            bool: True if successful
-        """
+        """Set user's preferred language."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -138,18 +99,7 @@ class Teacher:
 
     @staticmethod
     def set_notification_preference(user_id: int, enabled: bool) -> bool:
-        """
-        Set user's notification preference.
-
-        PHASE 2: New method for managing notification settings.
-
-        Args:
-            user_id: Telegram user ID
-            enabled: True to enable notifications, False to disable
-
-        Returns:
-            bool: True if successful
-        """
+        """Set user's notification preference."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -168,12 +118,7 @@ class Teacher:
 
     @staticmethod
     def get_all_active() -> List[Dict[str, Any]]:
-        """
-        Get all active teachers.
-
-        Returns:
-            List[Dict]: List of active teachers
-        """
+        """Get all active teachers."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -200,18 +145,7 @@ class Attendance:
         """
         Record a check-in.
 
-        PHASE 2: Now tracks lateness with late_minutes and checkin_status.
-
-        Args:
-            user_id: Telegram user ID
-            latitude: Check-in latitude
-            longitude: Check-in longitude
-            check_in_time: Check-in timestamp (default: now)
-            late_minutes: Number of minutes late (default: 0)
-            checkin_status: Status - 'on_time', 'late', or 'very_late' (default: 'on_time')
-
-        Returns:
-            bool: True if successful
+        COMMIT 2: Now catches IntegrityError for duplicate check-ins from rapid clicking.
         """
         try:
             if check_in_time is None:
@@ -221,20 +155,29 @@ class Attendance:
 
             with get_db() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO attendance (
-                        user_id, date, check_in_time,
-                        check_in_latitude, check_in_longitude,
-                        status, late_minutes, checkin_status
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (user_id, today, check_in_time, latitude, longitude,
-                      'checked_in', late_minutes, checkin_status))
 
-                logger.info(
-                    f"User {user_id} checked in at {check_in_time} "
-                    f"(status: {checkin_status}, late: {late_minutes} min)"
-                )
-                return True
+                try:
+                    cursor.execute("""
+                        INSERT INTO attendance (
+                            user_id, date, check_in_time,
+                            check_in_latitude, check_in_longitude,
+                            status, late_minutes, checkin_status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (user_id, today, check_in_time, latitude, longitude,
+                          'checked_in', late_minutes, checkin_status))
+
+                    logger.info(
+                        f"User {user_id} checked in at {check_in_time} "
+                        f"(status: {checkin_status}, late: {late_minutes} min)"
+                    )
+                    return True
+
+                except sqlite3.IntegrityError as e:
+                    logger.warning(
+                        f"Duplicate check-in attempt for user {user_id} on {today}. "
+                        f"User already checked in today. Error: {e}"
+                    )
+                    return False
 
         except Exception as e:
             logger.error(f"Error recording check-in for user {user_id}: {e}")
@@ -250,14 +193,7 @@ class Attendance:
         """
         Record a check-out.
 
-        Args:
-            user_id: Telegram user ID
-            latitude: Check-out latitude
-            longitude: Check-out longitude
-            check_out_time: Check-out timestamp (default: now)
-
-        Returns:
-            bool: True if successful
+        COMMIT 2: Added transaction handling for safer updates.
         """
         try:
             if check_out_time is None:
@@ -268,7 +204,6 @@ class Attendance:
             with get_db() as conn:
                 cursor = conn.cursor()
 
-                # Get check-in time
                 cursor.execute("""
                     SELECT check_in_time FROM attendance
                     WHERE user_id = ? AND date = ?
@@ -282,20 +217,28 @@ class Attendance:
                 check_in_time = datetime.fromisoformat(row[0])
                 total_hours = (check_out_time - check_in_time).total_seconds() / 3600
 
-                # Update attendance
-                cursor.execute("""
-                    UPDATE attendance SET
-                        check_out_time = ?,
-                        check_out_latitude = ?,
-                        check_out_longitude = ?,
-                        total_hours = ?,
-                        status = 'checked_out',
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = ? AND date = ?
-                """, (check_out_time, latitude, longitude, total_hours, user_id, today))
+                try:
+                    cursor.execute("""
+                        UPDATE attendance SET
+                            check_out_time = ?,
+                            check_out_latitude = ?,
+                            check_out_longitude = ?,
+                            total_hours = ?,
+                            status = 'checked_out',
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE user_id = ? AND date = ?
+                    """, (check_out_time, latitude, longitude, total_hours, user_id, today))
 
-                logger.info(f"User {user_id} checked out at {check_out_time}, hours: {total_hours:.2f}")
-                return True
+                    if cursor.rowcount == 0:
+                        logger.warning(f"Check-out update affected 0 rows for user {user_id}")
+                        return False
+
+                    logger.info(f"User {user_id} checked out at {check_out_time}, hours: {total_hours:.2f}")
+                    return True
+
+                except sqlite3.IntegrityError as e:
+                    logger.error(f"Integrity error during check-out for user {user_id}: {e}")
+                    return False
 
         except Exception as e:
             logger.error(f"Error recording check-out for user {user_id}: {e}")
@@ -303,15 +246,7 @@ class Attendance:
 
     @staticmethod
     def get_today_status(user_id: int) -> Optional[Dict[str, Any]]:
-        """
-        Get today's attendance status for a user.
-
-        Args:
-            user_id: Telegram user ID
-
-        Returns:
-            Optional[Dict]: Attendance record or None
-        """
+        """Get today's attendance status for a user."""
         try:
             today = date.today()
 
@@ -331,16 +266,7 @@ class Attendance:
 
     @staticmethod
     def get_user_history(user_id: int, limit: int = 7) -> List[Dict[str, Any]]:
-        """
-        Get attendance history for a user.
-
-        Args:
-            user_id: Telegram user ID
-            limit: Number of records to return
-
-        Returns:
-            List[Dict]: List of attendance records
-        """
+        """Get attendance history for a user."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -359,15 +285,7 @@ class Attendance:
 
     @staticmethod
     def get_daily_report(target_date: Optional[date] = None) -> List[Dict[str, Any]]:
-        """
-        Get attendance report for a specific date.
-
-        Args:
-            target_date: Date to report (default: today)
-
-        Returns:
-            List[Dict]: List of attendance records with teacher info
-        """
+        """Get attendance report for a specific date."""
         try:
             if target_date is None:
                 target_date = date.today()
@@ -403,18 +321,7 @@ class AdminLog:
         target_user_id: Optional[int] = None,
         details: Optional[str] = None
     ) -> bool:
-        """
-        Log an admin action.
-
-        Args:
-            admin_user_id: Admin's user ID
-            action: Action description
-            target_user_id: Target user ID (if applicable)
-            details: Additional details
-
-        Returns:
-            bool: True if successful
-        """
+        """Log an admin action."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -433,15 +340,7 @@ class AdminLog:
 
     @staticmethod
     def get_recent_logs(limit: int = 50) -> List[Dict[str, Any]]:
-        """
-        Get recent admin logs.
-
-        Args:
-            limit: Number of logs to return
-
-        Returns:
-            List[Dict]: List of admin log records
-        """
+        """Get recent admin logs."""
         try:
             with get_db() as conn:
                 cursor = conn.cursor()

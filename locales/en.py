@@ -174,6 +174,10 @@ MESSAGES = {
         "An error occurred while processing your request.\n\n"
         "Please try again or contact an administrator."
     ),
+    'error_rate_limit': (
+    "⏱️ **Please wait {seconds} seconds**\n\n"
+    "You're sending commands too quickly. Please try again in a moment."
+    ),
     'error_invalid_location': "Invalid location coordinates. Please try again.",
     'error_location_validation': "Error validating location. Please try again.",
     'error_checkin_failed': "Error recording check-in. Please try again or contact admin.",

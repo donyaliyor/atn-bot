@@ -4,8 +4,6 @@ A Telegram bot for teacher attendance tracking with location validation.
 
 This bot enables teachers to check in and out using location verification,
 supports multiple languages (EN/RU/UZ), and provides admin features.
-
-PHASE 2: Added smart notification system with scheduled reminders.
 """
 import logging
 import sys
@@ -26,7 +24,6 @@ from database.models import Teacher
 from locales import get_message
 from utils.keyboards import get_main_menu_keyboard, remove_keyboard
 
-# Configure logging with professional format
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=getattr(logging, Config.LOG_LEVEL),
@@ -38,10 +35,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-# ============================================================================
-# HEALTH CHECK SERVER (for zero-downtime deployment on Fly.io)
-# ============================================================================
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
     """Simple HTTP handler for health checks."""
@@ -57,7 +50,6 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, format, *args):
-        """Silence health check logs to avoid spam."""
         pass
 
 
@@ -70,19 +62,13 @@ def run_health_server():
         logger.error(f"Health check server error: {e}")
 
 
-# ============================================================================
-# PHASE 2: NOTIFICATION SYSTEM SETUP
-# ============================================================================
-
 def setup_notification_jobs(application: Application) -> None:
     """
     Set up all scheduled notification jobs using Config-based work schedule.
 
-    Schedules:
-    - Morning reminder: Before work start time
-    - Late warning: After grace period
-    - Checkout reminder: Before work end time
-    - Forgotten checkout: After work end time
+    COMMIT 2 FIX: Removed job_kwargs timezone parameter that was causing
+    "got multiple values for keyword argument 'timezone'" error.
+    The timezone is embedded in the time objects themselves.
 
     Args:
         application: Telegram application instance
@@ -100,10 +86,8 @@ def setup_notification_jobs(application: Application) -> None:
             send_forgotten_checkout
         )
 
-        # Get job queue
         job_queue = application.job_queue
 
-        # Get timezone
         try:
             tz = pytz.timezone(Config.TIMEZONE)
             logger.info(f"Using timezone: {Config.TIMEZONE}")
@@ -112,7 +96,6 @@ def setup_notification_jobs(application: Application) -> None:
             logger.warning("Falling back to UTC")
             tz = pytz.UTC
 
-        # Get notification times from Config
         notification_times = Config.get_notification_times()
 
         logger.info("Notification times calculated from work schedule:")
@@ -121,55 +104,39 @@ def setup_notification_jobs(application: Application) -> None:
         logger.info(f"  - Work Days: {Config.WORK_DAYS}")
         logger.info("")
 
-        # Schedule 1: Morning Reminder
         morning_time = notification_times['morning_reminder']
         job_queue.run_daily(
             send_morning_reminder,
             time=morning_time,
-            days=(0, 1, 2, 3, 4),  # Monday-Friday (0=Monday, 4=Friday)
-            name='morning_reminder',
-            chat_id=None,
-            data=None,
-            job_kwargs={'timezone': tz}
+            days=(0, 1, 2, 3, 4),
+            name='morning_reminder'
         )
         logger.info(f"✅ Morning Reminder scheduled: {morning_time.strftime('%H:%M')} (weekdays)")
 
-        # Schedule 2: Late Warning
         late_time = notification_times['late_warning']
         job_queue.run_daily(
             send_late_warning,
             time=late_time,
             days=(0, 1, 2, 3, 4),
-            name='late_warning',
-            chat_id=None,
-            data=None,
-            job_kwargs={'timezone': tz}
+            name='late_warning'
         )
         logger.info(f"✅ Late Warning scheduled: {late_time.strftime('%H:%M')} (weekdays)")
 
-        # Schedule 3: Checkout Reminder
         checkout_time = notification_times['checkout_reminder']
         job_queue.run_daily(
             send_checkout_reminder,
             time=checkout_time,
             days=(0, 1, 2, 3, 4),
-            name='checkout_reminder',
-            chat_id=None,
-            data=None,
-            job_kwargs={'timezone': tz}
+            name='checkout_reminder'
         )
         logger.info(f"✅ Checkout Reminder scheduled: {checkout_time.strftime('%H:%M')} (weekdays)")
 
-        # Schedule 4: Forgotten Checkout Alert
         forgotten_time = notification_times['forgotten_checkout']
         job_queue.run_daily(
             send_forgotten_checkout,
             time=forgotten_time,
             days=(0, 1, 2, 3, 4),
-            name='forgotten_checkout',
-            chat_id=None,
-            data=None,
-            job_kwargs={'timezone': tz}
+            name='forgotten_checkout'
         )
         logger.info(f"✅ Forgotten Checkout Alert scheduled: {forgotten_time.strftime('%H:%M')} (weekdays)")
 
@@ -185,24 +152,11 @@ def setup_notification_jobs(application: Application) -> None:
         logger.error("Bot will continue without scheduled notifications")
 
 
-# ============================================================================
-# COMMAND HANDLERS
-# ============================================================================
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /start command.
-    Sends a welcome message to the user, registers them in database,
-    and shows the main menu keyboard.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle the /start command."""
     user = update.effective_user
     logger.info(f"User {user.id} ({user.username}) started the bot")
 
-    # Register/update user in database
     success = Teacher.create_or_update(
         user_id=user.id,
         username=user.username,
@@ -216,10 +170,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         logger.error(f"Failed to register user {user.id} in database")
 
-    # Get user's language (will be default for new users)
     lang = Teacher.get_language(user.id)
 
-    # Send welcome message with main menu keyboard
     message = get_message(
         lang,
         'welcome',
@@ -237,14 +189,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /help command.
-    Shows available commands and usage information.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle the /help command."""
     user = update.effective_user
     logger.info(f"User {user.id} requested help")
 
@@ -260,14 +205,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def myid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /myid command.
-    Shows user their Telegram ID and admin status.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle the /myid command."""
     user = update.effective_user
     lang = Teacher.get_language(user.id)
     is_admin = Config.is_admin(user.id)
@@ -287,14 +225,7 @@ async def myid_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /status command.
-    Shows user's attendance status for today.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle the /status command."""
     user = update.effective_user
     logger.info(f"User {user.id} requested status")
 
@@ -329,14 +260,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /history command.
-    Shows user's recent attendance history.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle the /history command."""
     user = update.effective_user
     logger.info(f"User {user.id} requested history")
 
@@ -366,14 +290,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle the /stats command.
-    Shows database statistics (admin only).
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle the /stats command."""
     user = update.effective_user
 
     if not Config.is_admin(user.id):
@@ -389,7 +306,6 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     stats = get_db_stats()
     active_teachers = len(Teacher.get_all_active())
 
-    # PHASE 2: Include notification stats
     message = (
         f"**Database Statistics**\n\n"
         f"Total Teachers: {stats['teachers']}\n"
@@ -408,27 +324,14 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(message, parse_mode='Markdown')
 
 
-# ============================================================================
-# MENU BUTTON HANDLER
-# ============================================================================
-
 async def handle_button_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle text from menu buttons.
-    Routes button presses to appropriate command handlers.
-
-    Args:
-        update: Telegram update object
-        context: Callback context
-    """
+    """Handle text from menu buttons."""
     text = update.message.text
     user_id = update.effective_user.id
     lang = Teacher.get_language(user_id)
 
-    # Import handlers
     from handlers.attendance import checkin_command, checkout_command
 
-    # Map button text to commands (check if button text is in message)
     if get_message(lang, 'btn_checkin') in text:
         await checkin_command(update, context)
     elif get_message(lang, 'btn_checkout') in text:
@@ -453,22 +356,10 @@ async def handle_button_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await stats_command(update, context)
 
 
-# ============================================================================
-# ERROR HANDLER
-# ============================================================================
-
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Handle errors in the bot.
-    Logs errors and notifies the user if possible.
-
-    Args:
-        update: Update object (can be None)
-        context: Callback context with error information
-    """
+    """Handle errors in the bot."""
     logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
 
-    # Try to notify the user
     if isinstance(update, Update) and update.effective_message:
         try:
             lang = Teacher.get_language(update.effective_user.id) if update.effective_user else 'en'
@@ -478,32 +369,22 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             logger.error(f"Failed to send error message to user: {e}")
 
 
-# ============================================================================
-# MAIN FUNCTION
-# ============================================================================
-
 def main() -> None:
-    """
-    Start the bot.
-    Main entry point for the application.
-    """
+    """Start the bot."""
     logger.info("=" * 60)
     logger.info("Starting Attendance Bot...")
     logger.info("=" * 60)
 
-    # Start health check server for zero-downtime deployment
     logger.info("Starting health check server on port 8080...")
     health_thread = threading.Thread(target=run_health_server, daemon=True)
     health_thread.start()
     logger.info("✅ Health check server started")
 
-    # Validate configuration
     logger.info("Validating configuration...")
     if not Config.validate():
         logger.error("Configuration validation failed. Exiting.")
         sys.exit(1)
 
-    # Initialize database
     logger.info("Initializing database...")
     try:
         from database.db import init_database, get_db_stats
@@ -513,7 +394,6 @@ def main() -> None:
         logger.info(f"  - Teachers: {stats['teachers']}")
         logger.info(f"  - Attendance Records: {stats['attendance_records']}")
         logger.info(f"  - Admin Logs: {stats['admin_logs']}")
-        # PHASE 2: Log notification stats
         if 'notifications_total' in stats:
             logger.info(f"  - Notifications Sent: {stats['notifications_total']}")
     except Exception as e:
@@ -521,7 +401,6 @@ def main() -> None:
         logger.error("Please check database permissions and configuration")
         sys.exit(1)
 
-    # Log configuration details
     logger.info("=" * 60)
     logger.info("Configuration:")
     logger.info(f"  - School Location: ({Config.SCHOOL_LATITUDE:.6f}, {Config.SCHOOL_LONGITUDE:.6f})")
@@ -531,21 +410,17 @@ def main() -> None:
     logger.info(f"  - Default Language: {Config.DEFAULT_LANGUAGE}")
     logger.info(f"  - Timezone: {Config.TIMEZONE}")
     logger.info(f"  - Log Level: {Config.LOG_LEVEL}")
-    # PHASE 2: Log work schedule
     logger.info(f"  - Work Hours: {Config.WORK_START_TIME} - {Config.WORK_END_TIME}")
     logger.info(f"  - Grace Period: {Config.GRACE_PERIOD_MINUTES} minutes")
     logger.info(f"  - Work Days: {Config.WORK_DAYS}")
     logger.info("=" * 60)
 
-    # Create application
     logger.info("Building Telegram application...")
     application = Application.builder().token(Config.BOT_TOKEN).build()
 
-    # PHASE 2: Set up notification jobs BEFORE registering handlers
     logger.info("Setting up scheduled notification jobs...")
     setup_notification_jobs(application)
 
-    # Register basic command handlers
     logger.info("Registering command handlers...")
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -554,12 +429,10 @@ def main() -> None:
     application.add_handler(CommandHandler("history", history_command))
     application.add_handler(CommandHandler("stats", stats_command))
 
-    # Register language handlers
     from handlers.start import language_command, language_callback
     application.add_handler(CommandHandler("language", language_command))
     application.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
 
-    # Register attendance handlers
     from handlers.attendance import (
         checkin_command,
         checkout_command,
@@ -571,29 +444,24 @@ def main() -> None:
     application.add_handler(CommandHandler("cancel", cancel_command))
     application.add_handler(MessageHandler(filters.LOCATION, handle_location))
 
-    # Register admin handlers
     from handlers.admin import admin_panel, admin_callback, view_schedule_command
     application.add_handler(CommandHandler("admin", admin_panel))
     application.add_handler(CommandHandler("schedule", view_schedule_command))
     application.add_handler(CallbackQueryHandler(admin_callback, pattern="^admin_"))
 
-    # PHASE 2: Register notification info handler (view-only, no toggle)
     from handlers.preferences import notifications_command
     application.add_handler(CommandHandler("notifications", notifications_command))
 
-    # Register menu button handler (must be last text handler)
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         handle_button_text
     ))
 
-    # Register error handler
     application.add_error_handler(error_handler)
 
     logger.info("All handlers registered successfully")
     logger.info("=" * 60)
 
-    # Start the bot
     logger.info("🚀 Bot is ready! Starting polling...")
     logger.info("=" * 60)
     logger.info("✨ Features:")
@@ -605,6 +473,7 @@ def main() -> None:
     logger.info("  - Smart notification system (Phase 2)")
     logger.info("  - Late detection with grace period")
     logger.info("  - Automatic notification reminders")
+    logger.info("  - Rate limiting (COMMIT 2)")
     logger.info("=" * 60)
     logger.info("Press Ctrl+C to stop the bot")
     logger.info("=" * 60)

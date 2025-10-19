@@ -1,6 +1,7 @@
 """
 Utility decorators for handlers.
-Provides common functionality like weekday checks, admin verification, etc.
+Provides common functionality like weekday checks, admin verification, rate limiting, etc.
+
 """
 import logging
 from datetime import datetime
@@ -14,23 +15,68 @@ from locales import get_message
 
 logger = logging.getLogger(__name__)
 
+_rate_limit_store = {}
+
+
+def rate_limit(seconds: int):
+    """
+    Decorator to rate limit commands per user.
+
+    Prevents users from spamming commands by enforcing a minimum time between calls.
+    Uses in-memory storage to track last command time per user.
+
+    Args:
+        seconds: Minimum seconds between command calls
+
+    Usage:
+        @rate_limit(seconds=2)
+        async def some_command(update, context):
+            ...
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+            user_id = update.effective_user.id
+            now = datetime.now().timestamp()
+
+            if user_id in _rate_limit_store:
+                last_used = _rate_limit_store[user_id]
+                elapsed = now - last_used
+
+                if elapsed < seconds:
+                    remaining = int(seconds - elapsed) + 1
+
+                    lang = Teacher.get_language(user_id)
+                    message = get_message(
+                        lang,
+                        'error_rate_limit',
+                        seconds=remaining
+                    )
+
+                    await update.message.reply_text(message, parse_mode='Markdown')
+                    logger.info(
+                        f"Rate limit hit for user {user_id} on {func.__name__}, "
+                        f"{remaining}s remaining"
+                    )
+                    return
+
+            _rate_limit_store[user_id] = now
+            return await func(update, context, *args, **kwargs)
+
+        return wrapper
+    return decorator
+
 
 def weekday_only(func):
     """
     Decorator to restrict command to weekdays only.
     Sends a message to user if called on weekend.
-
-    Usage:
-        @weekday_only
-        async def check_in(update, context):
-            ...
     """
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
-        # 0 = Monday, 6 = Sunday
         today = datetime.now().weekday()
 
-        if today >= 5:  # Saturday (5) or Sunday (6)
+        if today >= 5:
             lang = Teacher.get_language(update.effective_user.id)
             message = get_message(lang, 'error_weekend')
             await update.message.reply_text(message, parse_mode='Markdown')
@@ -46,11 +92,6 @@ def admin_only(func):
     """
     Decorator to restrict command to admins only.
     Sends a message to user if they're not an admin.
-
-    Usage:
-        @admin_only
-        async def admin_panel(update, context):
-            ...
     """
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
@@ -73,11 +114,6 @@ def registered_user_only(func):
     """
     Decorator to ensure user is registered in database.
     Prompts user to use /start if not registered.
-
-    Usage:
-        @registered_user_only
-        async def check_in(update, context):
-            ...
     """
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
@@ -87,7 +123,6 @@ def registered_user_only(func):
         teacher = Teacher.get_by_id(user_id)
 
         if not teacher:
-            # Use default language since user isn't registered
             message = get_message('en', 'error_not_registered')
             await update.message.reply_text(message, parse_mode='Markdown')
             logger.warning(f"Unregistered user {user_id} tried to use {func.__name__}")

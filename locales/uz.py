@@ -174,6 +174,10 @@ MESSAGES = {
         "So'rovni qayta ishlashda xatolik yuz berdi.\n\n"
         "Keyinroq urinib ko'ring yoki administratorga murojaat qiling."
     ),
+    'error_rate_limit': (
+    "⏱️ **{seconds} soniya kuting**\n\n"
+    "Siz buyruqlarni juda tez yuborayapsiz. Bir ozdan keyin qayta urinib ko'ring."
+    ),
     'error_invalid_location': "Noto'g'ri koordinatalar. Qayta urinib ko'ring.",
     'error_location_validation': "Manzilni tekshirishda xatolik. Qayta urinib ko'ring.",
     'error_checkin_failed': "Kelishni saqlashda xatolik. Administratorga murojaat qiling.",
