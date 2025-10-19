@@ -250,7 +250,7 @@ MESSAGES = {
         "• Kech qolish ogohlantirish: {late_warning}\n"
         "• Ketish eslatmasi: {checkout_reminder}\n"
         "• Unutilgan ketish: {forgotten_checkout}\n\n"
-        "💡 Jadvalni o'zgartirish uchun `flyctl secrets set` dan foydalaning"
+        "💡 Jadvalni o'zgartirish uchun adminga murojaat qiling"
     ),
 
     # Notification Messages (sent by notification handlers)

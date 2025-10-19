@@ -577,10 +577,9 @@ def main() -> None:
     application.add_handler(CommandHandler("schedule", view_schedule_command))
     application.add_handler(CallbackQueryHandler(admin_callback, pattern="^admin_"))
 
-    # PHASE 2: Register notification preference handlers
-    from handlers.preferences import notifications_command, notification_toggle_callback
+    # PHASE 2: Register notification info handler (view-only, no toggle)
+    from handlers.preferences import notifications_command
     application.add_handler(CommandHandler("notifications", notifications_command))
-    application.add_handler(CallbackQueryHandler(notification_toggle_callback, pattern="^notif_toggle_"))
 
     # Register menu button handler (must be last text handler)
     application.add_handler(MessageHandler(
@@ -605,7 +604,7 @@ def main() -> None:
     logger.info("  - Zero-downtime deployment")
     logger.info("  - Smart notification system (Phase 2)")
     logger.info("  - Late detection with grace period")
-    logger.info("  - User notification preferences")
+    logger.info("  - Automatic notification reminders")
     logger.info("=" * 60)
     logger.info("Press Ctrl+C to stop the bot")
     logger.info("=" * 60)

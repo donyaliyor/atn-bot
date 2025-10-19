@@ -250,7 +250,7 @@ MESSAGES = {
         "• Late Warning: {late_warning}\n"
         "• Checkout Reminder: {checkout_reminder}\n"
         "• Forgotten Checkout: {forgotten_checkout}\n\n"
-        "💡 To update schedule, use `flyctl secrets set`"
+        "💡 To update schedule, contact admin"
     ),
 
     # Notification Messages (sent by notification handlers)
