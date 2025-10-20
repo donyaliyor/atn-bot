@@ -4,6 +4,8 @@ A Telegram bot for teacher attendance tracking with location validation.
 
 This bot enables teachers to check in and out using location verification,
 supports multiple languages (EN/RU/UZ), and provides admin features.
+
+FIX: Enhanced error handler with robust error message delivery
 """
 import logging
 import sys
@@ -357,16 +359,127 @@ async def handle_button_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle errors in the bot."""
-    logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
+    """
+    Handle errors in the bot with robust error message delivery.
 
+    FIX: Enhanced error handler that ALWAYS attempts to notify the user,
+    with multiple fallback mechanisms to ensure message delivery.
+    """
+    # Log the error with full traceback
+    logger.error("=" * 60)
+    logger.error("EXCEPTION OCCURRED IN BOT")
+    logger.error("=" * 60)
+    logger.error(f"Exception type: {type(context.error).__name__}")
+    logger.error(f"Exception message: {context.error}", exc_info=context.error)
+
+    # Try to get update information for debugging
+    if isinstance(update, Update):
+        logger.error(f"Update ID: {update.update_id}")
+        if update.effective_user:
+            logger.error(f"User ID: {update.effective_user.id}")
+            logger.error(f"Username: {update.effective_user.username}")
+        if update.effective_message:
+            logger.error(f"Message ID: {update.effective_message.message_id}")
+            logger.error(f"Chat ID: {update.effective_message.chat_id}")
+    else:
+        logger.error(f"Update object type: {type(update)}")
+
+    logger.error("=" * 60)
+
+    # Attempt to send error message to user with multiple fallback strategies
+    error_message_sent = False
+
+    # Strategy 1: Try using effective_message
     if isinstance(update, Update) and update.effective_message:
         try:
-            lang = Teacher.get_language(update.effective_user.id) if update.effective_user else 'en'
-            message = get_message(lang, 'error_general')
+            user_id = update.effective_user.id if update.effective_user else None
+
+            # Try to get user's language
+            lang = 'en'  # Default fallback
+            if user_id:
+                try:
+                    lang = Teacher.get_language(user_id)
+                    logger.info(f"Retrieved language for user {user_id}: {lang}")
+                except Exception as lang_error:
+                    logger.warning(f"Could not get user language, using default: {lang_error}")
+
+            # Get localized error message
+            try:
+                message = get_message(lang, 'error_general')
+            except Exception as msg_error:
+                logger.warning(f"Could not get localized message: {msg_error}")
+                # Hard-coded fallback messages
+                fallback_messages = {
+                    'en': "An error occurred while processing your request.\n\nPlease try again or contact an administrator.",
+                    'ru': "Произошла ошибка при обработке вашего запроса.\n\nПопробуйте снова или обратитесь к администратору.",
+                    'uz': "So'rovingizni qayta ishlashda xatolik yuz berdi.\n\nQayta urinib ko'ring yoki administratorga murojaat qiling."
+                }
+                message = fallback_messages.get(lang, fallback_messages['en'])
+
+            # Attempt to send the message
             await update.effective_message.reply_text(message)
+            error_message_sent = True
+            logger.info(f"Error message sent successfully to user {user_id} via effective_message")
+
         except Exception as e:
-            logger.error(f"Failed to send error message to user: {e}")
+            logger.error(f"Strategy 1 failed (effective_message): {e}")
+
+    # Strategy 2: Try using context.bot.send_message with chat_id
+    if not error_message_sent and isinstance(update, Update):
+        try:
+            chat_id = None
+            user_id = None
+
+            if update.effective_chat:
+                chat_id = update.effective_chat.id
+            if update.effective_user:
+                user_id = update.effective_user.id
+
+            if chat_id:
+                # Try to get language
+                lang = 'en'
+                if user_id:
+                    try:
+                        lang = Teacher.get_language(user_id)
+                    except:
+                        pass
+
+                # Get message
+                try:
+                    message = get_message(lang, 'error_general')
+                except:
+                    message = "An error occurred. Please try again."
+
+                # Send via bot
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message
+                )
+                error_message_sent = True
+                logger.info(f"Error message sent successfully to chat {chat_id} via bot.send_message")
+
+        except Exception as e:
+            logger.error(f"Strategy 2 failed (bot.send_message): {e}")
+
+    # Strategy 3: Last resort - try to send a simple message without localization
+    if not error_message_sent and isinstance(update, Update):
+        try:
+            if update.effective_message:
+                await update.effective_message.reply_text(
+                    "⚠️ An error occurred. Please try again.\n\n"
+                    "If the problem persists, contact an administrator."
+                )
+                error_message_sent = True
+                logger.info("Error message sent successfully via last resort method")
+        except Exception as e:
+            logger.error(f"Strategy 3 failed (last resort): {e}")
+
+    # Log final status
+    if error_message_sent:
+        logger.info("✅ Error message successfully delivered to user")
+    else:
+        logger.error("❌ CRITICAL: Failed to send error message to user through all strategies")
+        logger.error("User will only see Telegram's generic error popup")
 
 
 def main() -> None:
@@ -474,6 +587,7 @@ def main() -> None:
     logger.info("  - Late detection with grace period")
     logger.info("  - Automatic notification reminders")
     logger.info("  - Rate limiting (COMMIT 2)")
+    logger.info("  - Enhanced error handling (COMMIT 3)")
     logger.info("=" * 60)
     logger.info("Press Ctrl+C to stop the bot")
     logger.info("=" * 60)
