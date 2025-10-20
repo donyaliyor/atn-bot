@@ -2,6 +2,7 @@
 Attendance handlers for check-in and check-out operations.
 Now with multi-language support and late detection!
 
+FIX: Restore main menu keyboard after check-in/check-out operations complete
 """
 import logging
 from datetime import datetime
@@ -13,7 +14,7 @@ from database.models import Attendance, Teacher
 from database.schedule_models import WorkSchedule
 from utils.location import is_within_radius, validate_coordinates, format_coordinates
 from utils.decorators import weekday_only, registered_user_only, rate_limit
-from utils.keyboards import get_location_keyboard, remove_keyboard
+from utils.keyboards import get_location_keyboard, remove_keyboard, get_main_menu_keyboard, get_admin_keyboard
 from locales import get_message
 
 logger = logging.getLogger(__name__)
@@ -195,6 +196,10 @@ async def process_checkin(
         checkin_status=checkin_status
     )
 
+    # FIX: Get appropriate keyboard based on admin status
+    is_admin = Config.is_admin(user.id)
+    menu_keyboard = get_admin_keyboard(lang) if is_admin else get_main_menu_keyboard(lang)
+
     if success:
         if is_late:
             message = get_message(
@@ -214,10 +219,11 @@ async def process_checkin(
                 date=check_in_time.strftime('%Y-%m-%d')
             )
 
+        # FIX: Restore main menu keyboard instead of remove_keyboard()
         await update.message.reply_text(
             message,
             parse_mode='Markdown',
-            reply_markup=remove_keyboard()
+            reply_markup=menu_keyboard
         )
 
         logger.info(
@@ -226,7 +232,8 @@ async def process_checkin(
         )
     else:
         message = get_message(lang, 'error_checkin_failed')
-        await update.message.reply_text(message, reply_markup=remove_keyboard())
+        # FIX: Restore main menu keyboard even on error
+        await update.message.reply_text(message, reply_markup=menu_keyboard)
         logger.error(f"Failed to record check-in for user {user.id}")
 
 
@@ -256,6 +263,10 @@ async def process_checkout(
 
     success = Attendance.check_out(user.id, latitude, longitude, check_out_time)
 
+    # FIX: Get appropriate keyboard based on admin status
+    is_admin = Config.is_admin(user.id)
+    menu_keyboard = get_admin_keyboard(lang) if is_admin else get_main_menu_keyboard(lang)
+
     if success:
         total_hours = (check_out_time - check_in_time).total_seconds() / 3600
         message = get_message(
@@ -266,25 +277,32 @@ async def process_checkout(
             hours=f"{total_hours:.2f}",
             distance=f"{distance:.1f}"
         )
+        # FIX: Restore main menu keyboard instead of remove_keyboard()
         await update.message.reply_text(
             message,
             parse_mode='Markdown',
-            reply_markup=remove_keyboard()
+            reply_markup=menu_keyboard
         )
         logger.info(f"User {user.id} checked out successfully at {check_out_time}, hours: {total_hours:.2f}")
     else:
         message = get_message(lang, 'error_checkout_failed')
-        await update.message.reply_text(message, reply_markup=remove_keyboard())
+        # FIX: Restore main menu keyboard even on error
+        await update.message.reply_text(message, reply_markup=menu_keyboard)
         logger.error(f"Failed to record check-out for user {user.id}")
 
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /cancel command."""
-    lang = Teacher.get_language(update.effective_user.id)
+    user = update.effective_user
+    lang = Teacher.get_language(user.id)
 
     context.user_data.pop('awaiting_checkin_location', None)
     context.user_data.pop('awaiting_checkout_location', None)
 
+    # FIX: Restore main menu keyboard based on admin status
+    is_admin = Config.is_admin(user.id)
+    menu_keyboard = get_admin_keyboard(lang) if is_admin else get_main_menu_keyboard(lang)
+
     message = get_message(lang, 'operation_cancelled')
-    await update.message.reply_text(message, reply_markup=remove_keyboard())
-    logger.info(f"User {update.effective_user.id} cancelled operation")
+    await update.message.reply_text(message, reply_markup=menu_keyboard)
+    logger.info(f"User {user.id} cancelled operation")
