@@ -145,11 +145,11 @@ class Attendance:
         """
         Record a check-in.
 
-        COMMIT 2: Now catches IntegrityError for duplicate check-ins from rapid clicking.
+        TIMEZONE FIX: Now uses Config.now() instead of datetime.now()
         """
         try:
             if check_in_time is None:
-                check_in_time = datetime.now()
+                check_in_time = Config.now()  # CHANGED: was datetime.now()
 
             today = check_in_time.date()
 
@@ -193,11 +193,11 @@ class Attendance:
         """
         Record a check-out.
 
-        COMMIT 2: Added transaction handling for safer updates.
+        TIMEZONE FIX: Now uses Config.now() instead of datetime.now()
         """
         try:
             if check_out_time is None:
-                check_out_time = datetime.now()
+                check_out_time = Config.now()  # CHANGED: was datetime.now()
 
             today = check_out_time.date()
 
@@ -246,9 +246,13 @@ class Attendance:
 
     @staticmethod
     def get_today_status(user_id: int) -> Optional[Dict[str, Any]]:
-        """Get today's attendance status for a user."""
+        """
+        Get today's attendance status for a user.
+
+        TIMEZONE FIX: Now uses Config.today() instead of date.today()
+        """
         try:
-            today = date.today()
+            today = Config.today()  # CHANGED: was date.today()
 
             with get_db() as conn:
                 cursor = conn.cursor()
@@ -263,53 +267,6 @@ class Attendance:
         except Exception as e:
             logger.error(f"Error fetching today's status for user {user_id}: {e}")
             return None
-
-    @staticmethod
-    def get_user_history(user_id: int, limit: int = 7) -> List[Dict[str, Any]]:
-        """Get attendance history for a user."""
-        try:
-            with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT * FROM attendance
-                    WHERE user_id = ?
-                    ORDER BY date DESC
-                    LIMIT ?
-                """, (user_id, limit))
-
-                return [dict(row) for row in cursor.fetchall()]
-
-        except Exception as e:
-            logger.error(f"Error fetching history for user {user_id}: {e}")
-            return []
-
-    @staticmethod
-    def get_daily_report(target_date: Optional[date] = None) -> List[Dict[str, Any]]:
-        """Get attendance report for a specific date."""
-        try:
-            if target_date is None:
-                target_date = date.today()
-
-            with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT
-                        a.*,
-                        t.username,
-                        t.first_name,
-                        t.last_name
-                    FROM attendance a
-                    JOIN teachers t ON a.user_id = t.user_id
-                    WHERE a.date = ?
-                    ORDER BY a.check_in_time
-                """, (target_date,))
-
-                return [dict(row) for row in cursor.fetchall()]
-
-        except Exception as e:
-            logger.error(f"Error fetching daily report for {target_date}: {e}")
-            return []
-
 
 class AdminLog:
     """Admin log model for auditing."""

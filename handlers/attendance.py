@@ -173,9 +173,13 @@ async def process_checkin(
     distance: float,
     lang: str
 ) -> None:
-    """Process check-in with validated location."""
+    """
+    Process check-in with validated location.
+
+    TIMEZONE FIX: Now uses Config.now() instead of datetime.now()
+    """
     user = update.effective_user
-    check_in_time = datetime.now()
+    check_in_time = Config.now()  # CHANGED: was datetime.now()
 
     is_late, minutes_late = WorkSchedule.is_late_checkin(check_in_time)
     checkin_status = WorkSchedule.get_checkin_status(check_in_time)
@@ -238,9 +242,13 @@ async def process_checkout(
     distance: float,
     lang: str
 ) -> None:
-    """Process check-out with validated location."""
+    """
+    Process check-out with validated location.
+
+    TIMEZONE FIX: Now uses Config.now() instead of datetime.now()
+    """
     user = update.effective_user
-    check_out_time = datetime.now()
+    check_out_time = Config.now()  # CHANGED: was datetime.now()
 
     status = Attendance.get_today_status(user.id)
     if not status:
@@ -276,7 +284,6 @@ async def process_checkout(
         message = get_message(lang, 'error_checkout_failed')
         await update.message.reply_text(message, reply_markup=remove_keyboard())
         logger.error(f"Failed to record check-out for user {user.id}")
-
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /cancel command."""

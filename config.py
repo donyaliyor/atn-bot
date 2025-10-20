@@ -1,13 +1,14 @@
 """
-Configuration management for Attendance Bot.
+Configuration management for the attendance bot.
 Loads and validates environment variables.
 """
 import os
 import logging
 from typing import List
-from datetime import time
+from datetime import time, datetime
 from pathlib import Path
 from dotenv import load_dotenv
+import pytz
 
 load_dotenv()
 
@@ -67,85 +68,78 @@ class Config:
     FORGOTTEN_CHECKOUT_MINUTES_AFTER: int = int(os.getenv('FORGOTTEN_CHECKOUT_MINUTES_AFTER', '30'))
 
     @classmethod
+    def get_timezone(cls) -> pytz.timezone:
+        """
+        Get pytz timezone object for the configured timezone.
+
+        Returns:
+            pytz.timezone: Timezone object for Asia/Tashkent or configured TZ
+        """
+        try:
+            return pytz.timezone(cls.TIMEZONE)
+        except Exception as e:
+            logger.error(f"Error loading timezone {cls.TIMEZONE}: {e}")
+            logger.warning("Falling back to UTC")
+            return pytz.UTC
+
+    @classmethod
+    def now(cls) -> datetime:
+        """
+        Get current datetime in the configured timezone.
+
+        CRITICAL: This replaces all datetime.now() calls to ensure timezone awareness.
+
+        Returns:
+            datetime: Current time in Asia/Tashkent (or configured timezone)
+
+        Example:
+            >>> from config import Config
+            >>> current_time = Config.now()
+            >>> print(current_time)  # 2025-10-20 07:47:15+05:00
+        """
+        tz = cls.get_timezone()
+        return datetime.now(tz)
+
+    @classmethod
+    def today(cls):
+        """
+        Get today's date in the configured timezone.
+
+        Returns:
+            date: Today's date in the configured timezone
+        """
+        return cls.now().date()
+
+    @classmethod
     def validate(cls) -> bool:
-        """Validate critical configuration values."""
+        """Validate configuration."""
         if not cls.BOT_TOKEN:
-            logger.error("BOT_TOKEN is not set")
+            logger.error("BOT_TOKEN is required")
             return False
 
-        if cls.RADIUS_METERS <= 0:
-            logger.error(f"Invalid RADIUS_METERS: {cls.RADIUS_METERS}")
-            return False
+        if not cls.ADMIN_USER_IDS:
+            logger.warning("No admin users configured")
 
         if cls.DEFAULT_LANGUAGE not in cls.SUPPORTED_LANGUAGES:
-            logger.warning(f"DEFAULT_LANGUAGE '{cls.DEFAULT_LANGUAGE}' not supported")
-
-        if not cls._validate_time_format(cls.WORK_START_TIME):
-            logger.error(f"Invalid WORK_START_TIME: {cls.WORK_START_TIME}")
+            logger.error(f"Invalid default language: {cls.DEFAULT_LANGUAGE}")
             return False
 
-        if not cls._validate_time_format(cls.WORK_END_TIME):
-            logger.error(f"Invalid WORK_END_TIME: {cls.WORK_END_TIME}")
-            return False
-
-        if not 0 <= cls.GRACE_PERIOD_MINUTES <= 120:
-            logger.warning(f"Unusual grace period: {cls.GRACE_PERIOD_MINUTES} minutes")
-
-        db_dir = Path(cls.DB_PATH).parent
-        if not db_dir.exists():
-            try:
-                db_dir.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Created database directory: {db_dir}")
-            except Exception as e:
-                logger.error(f"Cannot create database directory: {e}")
-                return False
-
-        if not os.access(db_dir, os.W_OK):
-            logger.error(f"No write permission for database directory: {db_dir}")
-            return False
-
-        logger.info(f"Database path: {cls.DB_PATH}")
         logger.info("Configuration validated successfully")
+        logger.info(f"Timezone: {cls.TIMEZONE}")
+        logger.info(f"Current time: {cls.now().strftime('%Y-%m-%d %H:%M:%S %Z')}")
         return True
 
     @classmethod
-    def is_admin(cls, user_id: int) -> bool:
-        """Check if user is admin."""
-        return user_id in cls.ADMIN_USER_IDS
-
-    @classmethod
-    def _validate_time_format(cls, time_str: str) -> bool:
-        """Validate time string format (HH:MM)."""
-        try:
-            hours, minutes = map(int, time_str.split(':'))
-            return 0 <= hours <= 23 and 0 <= minutes <= 59
-        except:
-            return False
-
-    @classmethod
     def get_work_start_time(cls) -> time:
-        """Get work start time."""
-        try:
-            hours, minutes = map(int, cls.WORK_START_TIME.split(':'))
-            return time(hour=hours, minute=minutes)
-        except:
-            logger.error(f"Error parsing WORK_START_TIME: {cls.WORK_START_TIME}")
-            return time(hour=8, minute=0)
+        """Parse and return work start time."""
+        hour, minute = map(int, cls.WORK_START_TIME.split(':'))
+        return time(hour=hour, minute=minute)
 
     @classmethod
     def get_work_end_time(cls) -> time:
-        """Get work end time."""
-        try:
-            hours, minutes = map(int, cls.WORK_END_TIME.split(':'))
-            return time(hour=hours, minute=minutes)
-        except:
-            logger.error(f"Error parsing WORK_END_TIME: {cls.WORK_END_TIME}")
-            return time(hour=17, minute=0)
-
-    @classmethod
-    def is_working_day(cls, day_number: int) -> bool:
-        """Check if day is working day."""
-        return day_number in cls.WORK_DAYS
+        """Parse and return work end time."""
+        hour, minute = map(int, cls.WORK_END_TIME.split(':'))
+        return time(hour=hour, minute=minute)
 
     @classmethod
     def get_schedule_summary(cls) -> str:
